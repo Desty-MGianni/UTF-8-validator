@@ -101,7 +101,7 @@ static void DisplayError(string filename, string msg)
     Console.Write("[error] ");
 
     Console.ForegroundColor = originalColor;
-    Console.Write("[{filename}] {msg}");
+    Console.Write($"[{filename}] {msg}");
     Console.WriteLine();
 }
 
