@@ -70,7 +70,7 @@ The validator sequentially steps through a file stream and routes evaluation via
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License.
 
 ```text
 MIT License
