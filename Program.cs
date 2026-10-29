@@ -1,4 +1,11 @@
-﻿// Personnal reproduction in C# of the UTF-8 validator shown by Dave Eddy from the YouTube channel You Suck At Programming.
+﻿/*
+ * Copyright (c) 2026 Gianni Mucci
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+// Personnal reproduction in C# of the UTF-8 validator shown by Dave Eddy from the YouTube channel You Suck At Programming.
 
 // To codify any characters from humankind, we uses UNICODE code points,
 // which we restranscript in computer language with the
