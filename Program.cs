@@ -102,56 +102,32 @@ static (bool, string) Validator(string filename)
 
 static void DisplayError(string filename, string msg)
 {
-    ConsoleColor originalColor = Console.ForegroundColor;
-
-    Console.ForegroundColor = ConsoleColor.Red;
-    Console.Write("[error] ");
-
-    Console.ForegroundColor = originalColor;
+    Console.Write("\u001b[31m[error]\u001b[0m");
     Console.Write($"[{filename}] {msg}");
     Console.WriteLine();
 }
 
 static void DisplaySuccessByFile(string filename)
 {
-    ConsoleColor originalColor = Console.ForegroundColor;
-
-    Console.ForegroundColor = ConsoleColor.Green;
-    Console.Write("[success] ");
-
-    Console.ForegroundColor = originalColor;
+    Console.Write("\u001b[32m[success]\u001b[0m");
     Console.Write($"[{filename}] All the tests are successful");
     Console.WriteLine();
 }
 
 static void DisplaySuccessSummary()
 {
-    ConsoleColor originalColor = Console.ForegroundColor;
-
-    Console.ForegroundColor = ConsoleColor.Green;
-    Console.Write("All test passed successfuly");
-    Console.ForegroundColor = originalColor;
+    Console.Write("\u001b[32mAll test passed successfuly\u001b[0m");
     Console.WriteLine();
 }
 
 static void DisplayErrorSummary(int ok, int total)
 {
-    ConsoleColor originalColor = Console.ForegroundColor;
     Console.WriteLine();
     Console.Write(ok);
-
-    Console.ForegroundColor = ConsoleColor.Yellow;
-    Console.Write("/");
-
-    Console.ForegroundColor = originalColor;
+    Console.Write("\u001b[33m/\u001b[0m");
     Console.Write(total);
-
-    Console.ForegroundColor = ConsoleColor.Yellow;
-    Console.Write($" tests has been successful\n");
-
-    Console.ForegroundColor = originalColor;
+    Console.Write($" \u001b[33mtests has been successful\u001b[0m\n");
 }
-static bool IsEOF(int b) => b < 0;
 
 static int ContinuationByteNeeded(byte b)
 {
@@ -163,6 +139,9 @@ static int ContinuationByteNeeded(byte b)
         _ => 0,
     };
 }
+
+static bool IsEOF(int b) => b < 0;
+
 static bool IsContinuationByte(byte b) => b >= 0x80 && b <= 0xBF;
 static bool IsASCIICharacter(byte b) => b <= 0x7F;
 static bool IsFirstByteValid(byte b)
