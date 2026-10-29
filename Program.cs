@@ -37,7 +37,7 @@ foreach (string filename in args)
     }
     else
     {
-        DisplayError(errorMsg);
+        DisplayError(filename, errorMsg);
     }
 }
 
@@ -93,7 +93,7 @@ static (bool, string) Validator(string filename)
     }
 }
 
-static void DisplayError(string msg)
+static void DisplayError(string filename, string msg)
 {
     ConsoleColor originalColor = Console.ForegroundColor;
 
@@ -101,7 +101,7 @@ static void DisplayError(string msg)
     Console.Write("[error] ");
 
     Console.ForegroundColor = originalColor;
-    Console.Write(msg);
+    Console.Write("[{filename}] {msg}");
     Console.WriteLine();
 }
 
@@ -113,7 +113,7 @@ static void DisplaySuccessByFile(string filename)
     Console.Write("[success] ");
 
     Console.ForegroundColor = originalColor;
-    Console.Write($"All the tests in file {filename} have been successful");
+    Console.Write($"[{filename}] All the tests are successful");
     Console.WriteLine();
 }
 
