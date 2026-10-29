@@ -64,7 +64,7 @@ The validator sequentially steps through a file stream and routes evaluation via
 
 ## Roadmap / TODO
 
-- [ ] Implement robust **Overlong Encoding** traps (e.g., detecting `0xE0` followed by bytes lower than `0xA0`).
+- [x] Implement robust **Overlong Encoding** traps (e.g., detecting `0xE0` followed by bytes lower than `0xA0`).
 - [ ] Add explicit UTF-16 Surrogate Pair filtering (blocking `0xED` sub-ranges)
 - [ ] Implement **set of arguments** to notify the program the type of media wegive it (`-d`, `-f` or `-t`).
 

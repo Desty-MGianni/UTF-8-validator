@@ -7,35 +7,57 @@
 
 // Personnal reproduction in C# of the UTF-8 validator shown by Dave Eddy from the YouTube channel You Suck At Programming.
 
-// To codify any characters from humankind, we uses UNICODE code points,
-// which we restranscript in computer language with the
-// UTF-8, UTF-16 or UTF-32 standards.
-//
-// UTF-8 can uses UP TO 4 octets, detailed like this :
-//
-// the first octet (or the "leftmost" octet of the series will determine
-// the number of continuation bytes necessary.
-//
-//
-// When we encode U+10FFFF in UTF-8 (the largest codepoint available
-// for the standard), the first octet will be 11110100 -> 0xF4.
-//
-// On top of that, the Values 0xC0 and 0xC1 are not permitted
-// by the UTF-8 standard.
-// Any other value for the first octet is invalid UTF-8.
-//
-// The continuation bytes are all the same, following this convention :
-//     10XXXXXX
-//
-// TODO: implement overlong error (uses too much space than needed for a character -> defined by the UNICODE stardard)
+/* EXPLANATION OF THE UTF-8 STANDARD
+* ---------------------------------
+* To codify any characters from humankind, we uses UNICODE code points,
+* which we restranscript in computer language with the
+* UTF-8, UTF-16 or UTF-32 standards.
+*
+* UTF-8 can uses UP TO 4 octets, detailed like this :
+*
+* the first octet (or the "leftmost" octet of the series will determine
+* the number of continuation bytes necessary.
+*
+*  0XXXXXXX -> 1 octet (ASCII table)
+*  110XXXXX -> 2 octet
+*  1110XXXX -> 3 octet
+*  11110XXX -> 4 octet
+*
+* When we encode U+10FFFF in UTF-8 (the largest codepoint available
+* for the standard), the first octet will be 11110100 -> 0xF4.
+*
+* On top of that, the Values 0xC0 and 0xC1 are not permitted
+* by the UTF-8 standard.
+*
+* Any other value for the first octet is invalid UTF-8.
+*
+* The continuation bytes are all the same, following this convention :
+*     10XXXXXX
+*/
+
+/* BEHAVIOUR OF THE PROGRAM
+* ---------------------------------
+ *
+ * This program will stop reading a file when an error is detected,
+ * showing the byte value and the position
+ *
+ */
 
 int total = 0;
 int ok = 0;
 
+//TODO: Implement argument detection logic to handle entire folders or raw bytes transmitted from the console.
+
 foreach (string filename in args)
 {
-    Console.WriteLine($"Reading {filename}...");
     total++;
+    if (!File.Exists(filename))
+    {
+        DisplayError(filename, $"File does not exist in the current directory");
+        continue;
+    }
+
+    Console.WriteLine($"Reading {filename}...");
     (bool success, string errorMsg) = Validator(filename);
     if (success)
     {
@@ -55,49 +77,66 @@ else
 
 static (bool, string) Validator(string filename)
 {
+    int position = 0;
     byte b;
     int currentByte,
         nextByte;
+    string msg = string.Empty;
 
-    if (!File.Exists(filename))
-        return (false, $"File {filename} does not exist in the current directory");
     using FileStream fs = new(filename, FileMode.Open);
+    while (true)
     {
-        while (true)
-        {
-            currentByte = fs.ReadByte();
-            if (IsEOF(currentByte))
-                break;
+        currentByte = fs.ReadByte();
+        position++;
+        if (IsEOF(currentByte))
+            break;
 
-            b = (byte)currentByte;
-            if (IsASCIICharacter(b))
+        b = (byte)currentByte;
+        if (IsASCIICharacter(b))
+        {
+            //reset byte counter (start another character)
+            continue;
+        }
+
+        // Here,the byte is not an ASCII character -> multi-byte character.
+        // We verify if the first byte is valid
+
+        if (!IsFirstByteValid(b))
+        {
+            msg =
+                $"The first byte of the UTF-8 character is invalid: {b} -> {b:X}. [byte nº{position}]";
+            return (false, msg);
+        }
+
+        int nbrBytesNeeded = ContinuationByteNeeded(b);
+
+        for (int i = 0; i < nbrBytesNeeded; i++)
+        {
+            nextByte = fs.ReadByte();
+            position++;
+            b = (byte)nextByte;
+
+            if (IsEOF(nextByte))
             {
-                //reset byte counter (start another character)
-                continue;
+                msg = "EOF reached when a multi-byte character has not been consumed.";
+                return (false, msg);
             }
 
-            // Here,the byte is not an ASCII character -> multi-byte character.
-            // We verify if the first byte is valid
-
-            if (!IsFirstByteValid(b))
-                return (false, $"The first byte of the UTF-8 character is invalid: {b} -> {b:X}");
-
-            int nbrBytesNeeded = ContinuationByteNeeded(b);
-
-            for (int i = 0; i < nbrBytesNeeded; i++)
+            if (!IsContinuationByte(b))
             {
-                nextByte = fs.ReadByte();
-
-                if (IsEOF(nextByte))
-                    return (false, "The multi-byte character has been truncated");
-                b = (byte)nextByte;
-
-                if (!IsContinuationByte(b))
-                    return (false, $"Expected continuation byte, but got: {b} -> {b:X}");
+                msg =
+                    $"Expected continuation byte at byte, but got: {b} -> {b:X}. [byte nº{position}]";
+                return (false, msg);
+            }
+            // We verify the value of the 2nd octet to validate the overlong rule in UTF-8.
+            if (i == 0 && !IsOverlong(b, nbrBytesNeeded))
+            {
+                msg = $"Overlong Encoding detected: {b} -> {b:X}. [byte nº{position}]";
+                return (false, msg);
             }
         }
-        return (true, "");
     }
+    return (true, msg);
 }
 
 static void DisplayError(string filename, string msg)
@@ -137,6 +176,17 @@ static int ContinuationByteNeeded(byte b)
         >= 0xE0 and <= 0xEF => 2,
         >= 0xF0 and <= 0xF4 => 3,
         _ => 0,
+    };
+}
+
+static bool IsOverlong(byte b, int nbByte)
+{
+    return nbByte switch
+    {
+        2 => b >= 0xA0,
+        3 => b >= 0x90,
+        4 => b <= 0x8F,
+        _ => false,
     };
 }
 
