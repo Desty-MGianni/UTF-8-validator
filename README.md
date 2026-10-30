@@ -10,6 +10,7 @@ Here is a link to [the YouTube video](https://www.youtube.com/watch?v=7taRssuPB8
 
 - **Strict Specification Matching:** Correctly differentiates between ASCII (`0x00`-`0x7F`), continuation bytes (`0x80`-`0xBF`), and structural leading bytes.
 - **Forbidden Value Detection:** Rejects invalid standalone bytes like `0xC0`, `0xC1`, or any value above `0xF4` that exceeds the `U+10FFFF` Unicode limit.
+- **Overlong and Surrogate Pairs Verification:** Detect the number of continuous bytes needed and check if theirs values are valid (see [below](#technical-architecture))
 - **Batch Processing:** Pass multiple file paths at once to test batches of files simultaneously.
 - **Colorized CLI Output:** Instant visual cues for testing workflows (`[error]` prints in bright red).
 
@@ -55,6 +56,15 @@ The validator sequentially steps through a file stream and routes evaluation via
 
 - **Single-Byte Boundaries:** `0x00` to `0x7F`.
 - **Multi-Byte Boundaries:** Correctly counts expected trailing bytes (`1` for `0xC2`-`0xDF`, `2` for `0xE0`-`0xEF`, `3` for `0xF0`-`0xF4`).
+- **Overlong Detection:** Check the value of the 2nd byte depending of the number of continous bytes needed for the character
+
+| Continuous Bytes | Error condition   |
+| ---------------- | ----------------- |
+| 1                | 2nd byte < `0xA0` |
+| 2                | 2nd byte < `0x90` |
+| 3                | 2nd byte > `0x8F` |
+
+- **UTF-16 Surrogate Pairs Boundaries:** The 1st byte equals `0xED` and the 2nd byte is between `0x80` and `0xBF`.
 - **Truncation Safeguards:** Detects unexpected EOF mid-sequence.
 
 ## Limitations
@@ -68,6 +78,7 @@ The validator sequentially steps through a file stream and routes evaluation via
 - [x] Add explicit UTF-16 Surrogate Pair filtering (blocking `0xED` sub-ranges)
 - [ ] Implement **set of flags** to notify the program the type of media wegive it (`-d`, `-f` or `-t`).
 - [ ] Implement `--debug` flag.
+- [ ] Add a `-s` flag Show each characters successfuly read
 
 ## License
 
