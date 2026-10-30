@@ -43,12 +43,15 @@
  *
  */
 
+//TODO: Implement flags and argument detection logic to handle entire folders or raw bytes transmitted from the console.
+
+//TODO: Add debug flag so that only the errors or the finished message is shown.
+
+//TODO: Flag to show the text read from source ("reconstructed" from the bytes we read)
+
 int total = 0;
 int ok = 0;
 
-//TODO: Implement flags and argument detection logic to handle entire folders or raw bytes transmitted from the console.
-
-//TODO: add debug flag so that only the errors or the finished message is shown.
 foreach (string filename in args)
 {
     total++;
@@ -132,16 +135,16 @@ static (bool, string) Validator(string filename)
             if (!IsContinuationByte(b))
             {
                 msg =
-                    $"Expected continuation byte at byte, but got: {ch[i]} -> {ch[i]:X}. [byte nº{position}]";
+                    $"Expected continuation byte at byte, but got: {b} -> {b:X}. [byte nº{position}]";
                 return (false, msg);
             }
 
             // We verify the value of the 2nd octet
             // to validate the overlong rule in UTF-8.
             // (we do it on the first iteration of the loop)
-            if (i == 1 && !IsOverlong(ch[1], CByteNeeded))
+            if (i == 1 && IsOverlong(b, CByteNeeded))
             {
-                msg = $"Overlong Encoding detected: {ch[i]} -> {ch[i]:X}. [byte nº{position}]";
+                msg = $"Overlong Encoding detected: {b} -> {b:X}. [byte nº{position}]";
                 return (false, msg);
             }
 
@@ -152,9 +155,9 @@ static (bool, string) Validator(string filename)
 
         // The UTF-16 surrogates uses 3 octets and are between
         // 0xED 0xA0 0x80 and 0xED 0xBF-lxBF
-        if (CByteNeeded == 2 || IsUTF16Surrogate(ch))
+        if (CByteNeeded == 2 && IsUTF16Surrogate(ch))
         {
-            msg = $"UTF-16 surrogate code point detected: {ch[0]:X}{ch[1]:X}";
+            msg = $"UTF-16 surrogate pairs detected: {ch[0]:X}{ch[1]:X}";
             return (false, msg);
         }
     }
@@ -207,9 +210,9 @@ static bool IsOverlong(byte b, int nbCByte)
 {
     return nbCByte switch
     {
-        1 => b >= 0xA0,
-        2 => b >= 0x90,
-        3 => b <= 0x8F,
+        1 => b < 0xA0,
+        2 => b < 0x90,
+        3 => b > 0x8F,
         _ => false,
     };
 }
