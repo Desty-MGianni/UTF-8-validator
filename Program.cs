@@ -78,7 +78,6 @@ else
 static (bool, string) Validator(string filename)
 {
     int position = 0;
-    byte b;
     int currentByte,
         nextByte;
     string msg = string.Empty;
@@ -87,12 +86,13 @@ static (bool, string) Validator(string filename)
     while (true)
     {
         currentByte = fs.ReadByte();
+        byte firstByte = (byte)currentByte;
         position++;
+
         if (IsEOF(currentByte))
             break;
 
-        b = (byte)currentByte;
-        if (IsASCIICharacter(b))
+        if (IsASCIICharacter(firstByte))
         {
             //reset byte counter (start another character)
             continue;
@@ -101,39 +101,59 @@ static (bool, string) Validator(string filename)
         // Here,the byte is not an ASCII character -> multi-byte character.
         // We verify if the first byte is valid
 
-        if (!IsFirstByteValid(b))
+        if (!IsFirstByteValid(firstByte))
         {
             msg =
-                $"The first byte of the UTF-8 character is invalid: {b} -> {b:X}. [byte nº{position}]";
+                $"The first byte of the UTF-8 character is invalid: {firstByte} -> {firstByte:X}. [byte nº{position}]";
             return (false, msg);
         }
 
-        int nbrBytesNeeded = ContinuationByteNeeded(b);
+        int CByteNeeded = ContinuationByteNeeded(firstByte);
 
-        for (int i = 0; i < nbrBytesNeeded; i++)
+        byte[] ch = new byte[4];
+        ch[0] = (byte)currentByte;
+
+        // Start at 1 as the ch[0] is already populated at this point.
+        for (int i = 1; i <= CByteNeeded; i++)
         {
             nextByte = fs.ReadByte();
             position++;
-            b = (byte)nextByte;
 
             if (IsEOF(nextByte))
             {
-                msg = "EOF reached when a multi-byte character has not been consumed.";
+                msg = "EOF reached when a multi-byte character has not been completely consumed.";
                 return (false, msg);
             }
+
+            byte b = (byte)nextByte;
 
             if (!IsContinuationByte(b))
             {
                 msg =
-                    $"Expected continuation byte at byte, but got: {b} -> {b:X}. [byte nº{position}]";
+                    $"Expected continuation byte at byte, but got: {ch[i]} -> {ch[i]:X}. [byte nº{position}]";
                 return (false, msg);
             }
-            // We verify the value of the 2nd octet to validate the overlong rule in UTF-8.
-            if (i == 0 && !IsOverlong(b, nbrBytesNeeded))
+
+            // We verify the value of the 2nd octet
+            // (first iteration of the loop)
+            // to validate the overlong rule in UTF-8.
+            if (i == 1 && !IsOverlong(ch[1], CByteNeeded))
             {
-                msg = $"Overlong Encoding detected: {b} -> {b:X}. [byte nº{position}]";
+                msg = $"Overlong Encoding detected: {ch[i]} -> {ch[i]:X}. [byte nº{position}]";
                 return (false, msg);
             }
+
+            // Once all the check are valid, we "push" the byte
+            // into the array for the surrogate check.
+            ch[i] = b;
+        }
+
+        // The UTF-16 surrogates uses 3 octets and are between
+        // 0xED 0xA0 0x80 and 0xED 0xBF-lxBF
+        if (CByteNeeded == 2 || IsUTF16Surrogate(ch))
+        {
+            msg = $"UTF-16 surrogate code point detected: {ch[0]:X}{ch[1]:X}";
+            return (false, msg);
         }
     }
     return (true, msg);
@@ -191,6 +211,8 @@ static bool IsOverlong(byte b, int nbByte)
 }
 
 static bool IsEOF(int b) => b < 0;
+
+static bool IsUTF16Surrogate(byte[] b) => b[0] == 0xED && b[1] >= 0xA0 && b[1] <= 0xBF;
 
 static bool IsContinuationByte(byte b) => b >= 0x80 && b <= 0xBF;
 static bool IsASCIICharacter(byte b) => b <= 0x7F;
