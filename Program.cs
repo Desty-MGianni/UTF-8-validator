@@ -137,8 +137,8 @@ static (bool, string) Validator(string filename)
             }
 
             // We verify the value of the 2nd octet
-            // (first iteration of the loop)
             // to validate the overlong rule in UTF-8.
+            // (we do it on the first iteration of the loop)
             if (i == 1 && !IsOverlong(ch[1], CByteNeeded))
             {
                 msg = $"Overlong Encoding detected: {ch[i]} -> {ch[i]:X}. [byte nº{position}]";
@@ -203,13 +203,13 @@ static int ContinuationByteNeeded(byte b)
     };
 }
 
-static bool IsOverlong(byte b, int nbByte)
+static bool IsOverlong(byte b, int nbCByte)
 {
-    return nbByte switch
+    return nbCByte switch
     {
-        2 => b >= 0xA0,
-        3 => b >= 0x90,
-        4 => b <= 0x8F,
+        1 => b >= 0xA0,
+        2 => b >= 0x90,
+        3 => b <= 0x8F,
         _ => false,
     };
 }
