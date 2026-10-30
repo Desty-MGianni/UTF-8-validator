@@ -39,15 +39,16 @@
 * ---------------------------------
  *
  * This program will stop reading a file when an error is detected,
- * showing the byte value and the position
+ * showing the byte value and the position.
  *
  */
 
 int total = 0;
 int ok = 0;
 
-//TODO: Implement argument detection logic to handle entire folders or raw bytes transmitted from the console.
+//TODO: Implement flags and argument detection logic to handle entire folders or raw bytes transmitted from the console.
 
+//TODO: add debug flag so that only the errors or the finished message is shown.
 foreach (string filename in args)
 {
     total++;
@@ -57,7 +58,8 @@ foreach (string filename in args)
         continue;
     }
 
-    Console.WriteLine($"Reading {filename}...");
+    DisplayInfo($"Reading {filename}");
+
     (bool success, string errorMsg) = Validator(filename);
     if (success)
     {
@@ -159,24 +161,26 @@ static (bool, string) Validator(string filename)
     return (true, msg);
 }
 
+static void DisplayInfo(string msg)
+{
+    Console.Write("\u001b[34m[INFO]\u001b[0m ");
+    Console.Write(msg + "\n");
+}
 static void DisplayError(string filename, string msg)
 {
-    Console.Write("\u001b[31m[error]\u001b[0m");
-    Console.Write($"[{filename}] {msg}");
-    Console.WriteLine();
+    Console.Write("\u001b[31m[ERROR]\u001b[0m");
+    Console.Write($"[{filename}] {msg}\n");
 }
 
 static void DisplaySuccessByFile(string filename)
 {
-    Console.Write("\u001b[32m[success]\u001b[0m");
-    Console.Write($"[{filename}] All the tests are successful");
-    Console.WriteLine();
+    Console.Write("\u001b[32m[OK]\u001b[0m");
+    Console.Write($"[{filename}] All the tests are successful\n");
 }
 
 static void DisplaySuccessSummary()
 {
-    Console.Write("\u001b[32mAll test passed successfuly\u001b[0m");
-    Console.WriteLine();
+    Console.Write("\u001b[32mAll test passed successfuly\u001b[0m\n");
 }
 
 static void DisplayErrorSummary(int ok, int total)
