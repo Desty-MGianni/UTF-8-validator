@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Gianni Mucci
  *
  * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
+ * README.md file in the root directory of this source tree.
  */
 
 // Personnal reproduction in C# of the UTF-8 validator shown by Dave Eddy from the YouTube channel You Suck At Programming.
@@ -38,47 +38,83 @@
 /* BEHAVIOUR OF THE PROGRAM
 * ---------------------------------
  *
- * This program will stop reading a file when an error is detected,
+ * This program will immediately stop when an error is detected,
  * showing the byte value and the position.
  *
  */
-
-//TODO: Implement flags and argument detection logic to handle entire folders or raw bytes transmitted from the console.
 
 //TODO: Add debug flag so that only the errors or the finished message is shown.
 
 //TODO: Flag to show the text read from source ("reconstructed" from the bytes we read)
 
-int total = 0;
-int ok = 0;
-
-foreach (string filename in args)
+switch (args[0])
 {
-    total++;
-    if (!File.Exists(filename))
-    {
-        DisplayError(filename, $"File does not exist in the current directory");
-        continue;
-    }
+    case "-d":
+        HandleDirectory(args[1..]);
+        break;
+    case "-f":
+        HandleFiles(args[1..]);
+        break;
+    case "-t":
+        if (args.Length != 2)
+            DisplayUsage();
+        HandleText(args[1]);
+        break;
+    case "-s":
+    // TODO: Add 2nd argument logic for `--debug` flag
+    case "--debug":
+    default:
+        DisplayUsage();
+        break;
+}
 
-    DisplayInfo($"Reading {filename}");
-
-    (bool success, string errorMsg) = Validator(filename);
-    if (success)
+static void HandleDirectory(string[] listDirectories)
+{
+    foreach (string dir in listDirectories)
     {
-        DisplaySuccessByFile(filename);
-        ok++;
-    }
-    else
-    {
-        DisplayError(filename, errorMsg);
+        if (!Directory.Exists(dir))
+            DisplayError(dir, $"Directory {dir} is not found");
+        string[] Files = Directory.GetFiles(dir);
+        HandleFiles(Files);
     }
 }
 
-if (ok == total && total > 0)
-    DisplaySuccessSummary();
-else
-    DisplayErrorSummary(ok, total);
+static (int ok, int total) HandleFiles(string[] FilePath)
+{
+    int total = 0;
+    int ok = 0;
+    foreach (string filename in FilePath)
+    {
+        total++;
+        if (!File.Exists(filename))
+        {
+            DisplayError(filename, $"File does not exist in the current directory");
+            continue;
+        }
+
+        DisplayInfo($"Reading {filename}");
+
+        (bool success, string errorMsg) = Validator(filename);
+        if (success)
+        {
+            DisplaySuccessByFile(filename);
+            ok++;
+        }
+        else
+        {
+            DisplayError(filename, errorMsg);
+        }
+    }
+
+    //TODO: toggle for when a -s flag is present
+    if (ok == total && total > 0)
+        DisplaySuccessSummary();
+    else
+        DisplayErrorSummary(ok, total);
+    return (ok, total);
+}
+
+static void HandleText(string consInput) { }
 
 static (bool, string) Validator(string filename)
 {
@@ -163,6 +199,8 @@ static (bool, string) Validator(string filename)
     }
     return (true, msg);
 }
+
+static void DisplayUsage() { }
 
 static void DisplayInfo(string msg)
 {
