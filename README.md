@@ -27,12 +27,18 @@ git clone https://github.com/Desty-MGianni/UTF-8-validator
 cd utf8-validator
 ```
 
-## Usage
-
-Run the validator by passing one or multiple file paths as arguments to your compiled binary or via `dotnet run`:
+### Compile the program
 
 ```bash
-dotnet run file1 file2
+dotnet publish
+```
+
+## Usage
+
+Run the validator by passing one or multiple file paths as arguments to your compiled binary.
+
+```bash
+./Script/UTF-8\ Validator [Flags] (arguments)
 ```
 
 ### Example Outputs
@@ -56,7 +62,7 @@ The validator sequentially steps through a file stream and routes evaluation via
 
 - **Single-Byte Boundaries:** `0x00` to `0x7F`.
 - **Multi-Byte Boundaries:** Correctly counts expected trailing bytes (`1` for `0xC2`-`0xDF`, `2` for `0xE0`-`0xEF`, `3` for `0xF0`-`0xF4`).
-- **Overlong Detection:** Check the value of the 2nd byte depending of the number of continous bytes needed for the character
+- **Overlong Detection:** Check the value of the 2nd byte depending of the number of continous bytes needed for the character.
 
 | Continuous Bytes | Error condition   |
 | ---------------- | ----------------- |
@@ -76,9 +82,12 @@ The validator sequentially steps through a file stream and routes evaluation via
 
 - [x] Implement robust **Overlong Encoding** traps (e.g., detecting `0xE0` followed by bytes lower than `0xA0`).
 - [x] Add explicit UTF-16 Surrogate Pair filtering (blocking `0xED` sub-ranges)
-- [ ] Implement **set of flags** to notify the program the type of media wegive it (`-d`, `-f` or `-t`).
+- [x] Implement **set of flags** to notify the program the type of media wegive it (`-d`, `-f` or `-t`).
+- [ ] Change project names for a easier to type and use experience.
+- [ ] Add a _stdin_ read when `-t` flag is used solo.
 - [ ] Implement `--debug` flag.
-- [ ] Add a `-s` flag Show each characters successfuly read
+- [ ] Add a `-s` flag Show each characters successfuly read.
+- [ ] Redo the [usage section](#Usage)
 
 ## License
 
