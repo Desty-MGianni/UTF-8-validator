@@ -41,24 +41,31 @@
  * This program will immediately stop when an error is detected,
  * showing the byte value and the position.
  *
+ * C# doesn't allow raw bytes to be sent to the program .
+ * (either via args or Console.OpenStandardInput / Console.In)
+ *
+ * To have that feature available, the program will manually
+ * parse string into bytes while keeping the same syntax as the Printf command.
+ *
  */
 
 //TODO: Add debug flag so that only the errors or the finished message is shown.
 
 //TODO: Flag to show the text read from source ("reconstructed" from the bytes we read)
 
+int total = 0;
+int ok = 0;
+
 switch (args[0])
 {
     case "-d":
-        HandleDirectory(args[1..]);
+        (ok, total) = HandleDirectory(args[1..]);
         break;
     case "-f":
-        HandleFiles(args[1..]);
+        (ok, total) = HandleFiles(args[1..]);
         break;
     case "-t":
-        if (args.Length != 2)
-            DisplayUsage();
-        HandleText(args[1]);
+        (ok, total) = HandleText(args[1..]);
         break;
     case "-s":
     // TODO: Add 2nd argument logic for `--debug` flag
@@ -68,22 +75,41 @@ switch (args[0])
         break;
 }
 
-static void HandleDirectory(string[] listDirectories)
+//TODO: toggle for when a -s flag is present
+if (ok == total && total > 0)
+    DisplaySuccessSummary();
+else
+    DisplayErrorSummary(ok, total);
+
+static (int ok, int total) HandleDirectory(string[] args)
 {
-    foreach (string dir in listDirectories)
+    int ok = 0;
+    int total = 0;
+    if (args.Length == 0)
+    {
+        DisplayError("Directory", $"No arguments given for directories. Use -h to show the usage");
+        return (0, 0);
+    }
+    foreach (string dir in args)
     {
         if (!Directory.Exists(dir))
+        {
             DisplayError(dir, $"Directory {dir} is not found");
+            total++;
+        }
         string[] Files = Directory.GetFiles(dir);
-        HandleFiles(Files);
+        (int currentOk, int currentTotal) = HandleFiles(Files);
+        ok += currentOk;
+        total += currentTotal;
     }
+    return (ok, total);
 }
 
-static (int ok, int total) HandleFiles(string[] FilePath)
+static (int ok, int total) HandleFiles(string[] filePath)
 {
     int total = 0;
     int ok = 0;
-    foreach (string filename in FilePath)
+    foreach (string filename in filePath)
     {
         total++;
         if (!File.Exists(filename))
@@ -94,7 +120,8 @@ static (int ok, int total) HandleFiles(string[] FilePath)
 
         DisplayInfo($"Reading {filename}");
 
-        (bool success, string errorMsg) = Validator(filename);
+        Stream data = new FileStream(filename, FileMode.Open);
+        (bool success, string errorMsg) = Validator(data);
         if (success)
         {
             DisplaySuccessByFile(filename);
@@ -106,27 +133,150 @@ static (int ok, int total) HandleFiles(string[] FilePath)
         }
     }
 
-    //TODO: toggle for when a -s flag is present
-    if (ok == total && total > 0)
-        DisplaySuccessSummary();
-    else
-        DisplayErrorSummary(ok, total);
     return (ok, total);
 }
 
-static void HandleText(string consInput) { }
+static (int ok, int total) HandleText(string[] args)
+{
+    // C# only permets a string[] for the CLI arguments input.
+    // This method bypass the C# logic and permit 2 use cases :
+    //    - with argument after the flag -> uses manual parsing
+    //    - without argument after the flag -> uses stdin ??????
 
-static (bool, string) Validator(string filename)
+    int ok = 0;
+    int total = 0;
+
+    // If the user type bytes as CLI Arguments,
+    // we manually parse each character in the string
+    // into a byte following the printf command syntax
+    //
+    // (\xFA become real 0xFA byte)
+    if (args.Length >= 1)
+    {
+        total = 1;
+        byte[] output = ParseTextToBytes(args[0]);
+        Stream outputStream = new MemoryStream(output);
+        (bool success, string errorMsg) = Validator(outputStream);
+        if (success)
+        {
+            DisplaySuccessByFile("Raw bytes");
+            ok++;
+        }
+        else
+        {
+            DisplayError("Raw bytes", errorMsg);
+        }
+    }
+    else
+    {
+        total++;
+    }
+    // No other argument in args : we prompt the user via stdin
+    return (ok, total);
+}
+
+static byte[] ParseTextToBytes(string text)
+{
+    static int ZeroToNineDecimal(char c)
+    {
+        return c switch
+        {
+            '0' => 0,
+            '1' => 1,
+            '2' => 2,
+            '3' => 3,
+            '4' => 4,
+            '5' => 5,
+            '6' => 6,
+            '7' => 7,
+            '8' => 8,
+            '9' => 9,
+            _ => throw new ArgumentException(
+                $"Unexpected behaviour inside {nameof(ZeroToNineDecimal)}"
+            ),
+        };
+    }
+    static int AtoFinDecimal(char c)
+    {
+        return c switch
+        {
+            'A' or 'a' => 10,
+            'B' or 'b' => 11,
+            'C' or 'c' => 12,
+            'D' or 'd' => 13,
+            'E' or 'e' => 14,
+            'F' or 'f' => 15,
+            _ => throw new ArgumentException(
+                $"Unexpected behaviour inside {nameof(AtoFinDecimal)}"
+            ),
+        };
+    }
+
+    static byte? ConvertCharToByte(char c)
+    {
+        return c switch
+        {
+            >= '0' and <= '9' => (byte)ZeroToNineDecimal(c),
+            >= 'A' and <= 'F' => (byte)AtoFinDecimal(c),
+            _ => null,
+        };
+    }
+
+    /*
+     * for a result of 0xAF in hex :
+     * e1 = A
+     * e0 = F
+     */
+    byte? e0 = null,
+        e1 = null;
+    byte[] buffer = new byte[text.Length];
+    int idx = 0;
+
+    foreach (char c in text)
+    {
+        if (c == '\\' || c == 'x')
+            continue;
+
+        if (e1 is null)
+        {
+            e1 = ConvertCharToByte(c);
+            if (e1 is null)
+                DisplayError(
+                    "Raw bytes",
+                    $"Invalid character detected when parsing text to byte: {c}"
+                );
+            else
+                continue;
+        }
+
+        e0 ??= ConvertCharToByte(c);
+        if (e0 is null)
+            DisplayError("Raw bytes", $"Invalid character detected when parsing text to byte: {c}");
+
+        byte value = (byte)(e1 * 16 + e0)!;
+        buffer[idx] = value;
+        idx++;
+
+        e0 = null;
+        e1 = null;
+
+        //TODO: debug and show detection here to display each byte
+        Console.Write($"{value:X2} ");
+    }
+    Console.Write("\n");
+    return buffer;
+}
+
+static (bool success, string msg) Validator(Stream data)
 {
     int position = 0;
     int currentByte,
         nextByte;
     string msg = string.Empty;
 
-    using FileStream fs = new(filename, FileMode.Open);
     while (true)
     {
-        currentByte = fs.ReadByte();
+        currentByte = data.ReadByte();
         byte firstByte = (byte)currentByte;
         position++;
 
@@ -157,7 +307,7 @@ static (bool, string) Validator(string filename)
         // Start at 1 as the ch[0] is already populated at this point.
         for (int i = 1; i <= CByteNeeded; i++)
         {
-            nextByte = fs.ReadByte();
+            nextByte = data.ReadByte();
             position++;
 
             if (IsEOF(nextByte))
@@ -197,6 +347,7 @@ static (bool, string) Validator(string filename)
             return (false, msg);
         }
     }
+    data.Close();
     return (true, msg);
 }
 
@@ -207,16 +358,19 @@ static void DisplayInfo(string msg)
     Console.Write("\u001b[34m[INFO]\u001b[0m ");
     Console.Write(msg + "\n");
 }
-static void DisplayError(string filename, string msg)
+
+// Here, section is either the name of the file/directory or the string
+// Raw Bytes for when we hande CLI / stdin arguments
+static void DisplayError(string section, string msg)
 {
     Console.Write("\u001b[31m[ERROR]\u001b[0m");
-    Console.Write($"[{filename}] {msg}\n");
+    Console.Write($"[{section}] {msg}\n");
 }
 
-static void DisplaySuccessByFile(string filename)
+static void DisplaySuccessByFile(string section)
 {
     Console.Write("\u001b[32m[OK]\u001b[0m");
-    Console.Write($"[{filename}] All the tests are successful\n");
+    Console.Write($"[{section}] All the tests are successful\n");
 }
 
 static void DisplaySuccessSummary()
