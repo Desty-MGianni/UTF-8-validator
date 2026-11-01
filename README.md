@@ -84,9 +84,9 @@ The validator sequentially steps through a file stream and routes evaluation via
 - [x] Add explicit UTF-16 Surrogate Pair filtering (blocking `0xED` sub-ranges)
 - [x] Implement **set of flags** to notify the program the type of media wegive it (`-d`, `-f` or `-t`).
 - [ ] Change project names for a easier to type and use experience.
-- [ ] Add a _stdin_ read when `-t` flag is used solo.
+- [x] Add a _stdin_ read when `-t` flag is used solo.
 - [ ] Implement `--debug` flag.
-- [ ] Add a `-s` flag Show each characters successfuly read.
+- [ ] Add a `-s` flag to show each characters successfuly read.
 - [ ] Redo the [usage section](#Usage)
 
 ## License

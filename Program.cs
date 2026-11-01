@@ -56,6 +56,33 @@
 int total = 0;
 int ok = 0;
 
+if (args.Length == 0)
+{
+    // this check is for printf piping into this program.
+    if (Console.IsInputRedirected)
+    {
+        total++;
+        (bool success, string errorMsg) = ReadStdin();
+
+        if (!success)
+            DisplayError("stdin piping", errorMsg);
+        else
+        {
+            DisplaySuccess("stdin piping");
+            ok++;
+        }
+
+        CheckResult(ok, total);
+        return;
+    }
+    // if the user enter noting, we show how to use the program
+    else
+    {
+        DisplayUsage();
+        return;
+    }
+}
+
 switch (args[0])
 {
     case "-d":
@@ -75,11 +102,18 @@ switch (args[0])
         break;
 }
 
-//TODO: toggle for when a -s flag is present
-if (ok == total && total > 0)
-    DisplaySuccessSummary();
-else
-    DisplayErrorSummary(ok, total);
+CheckResult(ok, total);
+
+static void CheckResult(int ok, int total)
+{
+    //TODO: toggle for when a -s flag is present
+    if (ok == total)
+        DisplaySuccessSummary();
+    else if (total > 0)
+    {
+        DisplayErrorSummary(ok, total);
+    }
+}
 
 static (int ok, int total) HandleDirectory(string[] args)
 {
@@ -124,7 +158,7 @@ static (int ok, int total) HandleFiles(string[] filePath)
         (bool success, string errorMsg) = Validator(data);
         if (success)
         {
-            DisplaySuccessByFile(filename);
+            DisplaySuccess(filename);
             ok++;
         }
         else
@@ -144,7 +178,9 @@ static (int ok, int total) HandleText(string[] args)
     //    - without argument after the flag -> uses stdin ??????
 
     int ok = 0;
-    int total = 0;
+    int total = 1;
+    bool success;
+    string errorMsg;
 
     // If the user type bytes as CLI Arguments,
     // we manually parse each character in the string
@@ -153,33 +189,57 @@ static (int ok, int total) HandleText(string[] args)
     // (\xFA become real 0xFA byte)
     if (args.Length >= 1)
     {
-        total = 1;
-        byte[] output = ParseTextToBytes(args[0]);
-        Stream outputStream = new MemoryStream(output);
-        (bool success, string errorMsg) = Validator(outputStream);
+        (success, errorMsg) = ReadCLI(args[1..]);
         if (success)
         {
-            DisplaySuccessByFile("Raw bytes");
+            DisplaySuccess("CLI Bytes");
             ok++;
         }
         else
         {
-            DisplayError("Raw bytes", errorMsg);
+            DisplayError("CLI bytes", errorMsg);
         }
     }
     else
     {
-        total++;
+        (success, errorMsg) = ReadStdin();
+        if (!success)
+        {
+            DisplayError("Stdin bytes", errorMsg);
+        }
+        else
+        {
+            DisplaySuccess("stdin");
+            ok++;
+        }
     }
     // No other argument in args : we prompt the user via stdin
     return (ok, total);
 }
 
-static byte[] ParseTextToBytes(string text)
+static (bool success, string errorMsg) ReadCLI(string[] text)
 {
-    static int ZeroToNineDecimal(char c)
+    DisplayInfo("Reading CLI arguments");
+    (bool success, byte[] output, string errorMsg) = ParseTextToBytes(text[0]);
+    if (!success)
     {
-        return c switch
+        return (false, errorMsg);
+    }
+
+    Stream inputStream = new MemoryStream(output);
+    return Validator(inputStream);
+}
+
+static (bool success, string errorMsg) ReadStdin()
+{
+    DisplayInfo("Reading stdin");
+    Stream stdin = Console.OpenStandardInput();
+    return Validator(stdin);
+}
+static (bool, byte[], string errorMsg) ParseTextToBytes(string text)
+{
+    static byte? ConvertCharToByte(char c) =>
+        c switch
         {
             '0' => 0,
             '1' => 1,
@@ -191,36 +251,14 @@ static byte[] ParseTextToBytes(string text)
             '7' => 7,
             '8' => 8,
             '9' => 9,
-            _ => throw new ArgumentException(
-                $"Unexpected behaviour inside {nameof(ZeroToNineDecimal)}"
-            ),
-        };
-    }
-    static int AtoFinDecimal(char c)
-    {
-        return c switch
-        {
             'A' or 'a' => 10,
             'B' or 'b' => 11,
             'C' or 'c' => 12,
             'D' or 'd' => 13,
             'E' or 'e' => 14,
             'F' or 'f' => 15,
-            _ => throw new ArgumentException(
-                $"Unexpected behaviour inside {nameof(AtoFinDecimal)}"
-            ),
-        };
-    }
-
-    static byte? ConvertCharToByte(char c)
-    {
-        return c switch
-        {
-            >= '0' and <= '9' => (byte)ZeroToNineDecimal(c),
-            >= 'A' and <= 'F' => (byte)AtoFinDecimal(c),
             _ => null,
         };
-    }
 
     /*
      * for a result of 0xAF in hex :
@@ -231,29 +269,36 @@ static byte[] ParseTextToBytes(string text)
         e1 = null;
     byte[] buffer = new byte[text.Length];
     int idx = 0;
+    bool success = default;
+    string errorMsg = string.Empty;
 
     foreach (char c in text)
     {
         if (c == '\\' || c == 'x')
             continue;
 
+        errorMsg = $"Invalid character detected when parsing text to byte: {c}";
+        // This initial null check is necessary to "advance the pointer".
         if (e1 is null)
         {
             e1 = ConvertCharToByte(c);
             if (e1 is null)
-                DisplayError(
-                    "Raw bytes",
-                    $"Invalid character detected when parsing text to byte: {c}"
-                );
+            {
+                success = false;
+                break;
+            }
             else
                 continue;
         }
 
         e0 ??= ConvertCharToByte(c);
         if (e0 is null)
-            DisplayError("Raw bytes", $"Invalid character detected when parsing text to byte: {c}");
+        {
+            success = false;
+            break;
+        }
 
-        byte value = (byte)(e1 * 16 + e0)!;
+        byte value = (byte)(e1 * 16 + e0);
         buffer[idx] = value;
         idx++;
 
@@ -262,12 +307,14 @@ static byte[] ParseTextToBytes(string text)
 
         //TODO: debug and show detection here to display each byte
         Console.Write($"{value:X2} ");
+
+        success = true;
     }
     Console.Write("\n");
-    return buffer;
+    return (success, buffer, errorMsg);
 }
 
-static (bool success, string msg) Validator(Stream data)
+static (bool success, string msg) Validator(Stream s)
 {
     int position = 0;
     int currentByte,
@@ -276,12 +323,13 @@ static (bool success, string msg) Validator(Stream data)
 
     while (true)
     {
-        currentByte = data.ReadByte();
-        byte firstByte = (byte)currentByte;
+        currentByte = s.ReadByte();
         position++;
 
         if (IsEOF(currentByte))
             break;
+
+        byte firstByte = (byte)currentByte;
 
         if (IsASCIICharacter(firstByte))
         {
@@ -307,7 +355,7 @@ static (bool success, string msg) Validator(Stream data)
         // Start at 1 as the ch[0] is already populated at this point.
         for (int i = 1; i <= CByteNeeded; i++)
         {
-            nextByte = data.ReadByte();
+            nextByte = s.ReadByte();
             position++;
 
             if (IsEOF(nextByte))
@@ -347,7 +395,7 @@ static (bool success, string msg) Validator(Stream data)
             return (false, msg);
         }
     }
-    data.Close();
+    s.Close();
     return (true, msg);
 }
 
@@ -367,7 +415,7 @@ static void DisplayError(string section, string msg)
     Console.Write($"[{section}] {msg}\n");
 }
 
-static void DisplaySuccessByFile(string section)
+static void DisplaySuccess(string section)
 {
     Console.Write("\u001b[32m[OK]\u001b[0m");
     Console.Write($"[{section}] All the tests are successful\n");
@@ -375,6 +423,7 @@ static void DisplaySuccessByFile(string section)
 
 static void DisplaySuccessSummary()
 {
+    Console.WriteLine();
     Console.Write("\u001b[32mAll test passed successfuly\u001b[0m\n");
 }
 
