@@ -56,7 +56,7 @@ Both global flags (`--global` and `--show`) can be added anywhere inside the arg
 ./utf8-validator -t --debug "\xAC\x41\x42"
 ```
 
-When no argumens are given after the flag, the program prompt the user via stdin. To escape from it
+When no argumens are given after the flag, the program prompt the user via stdin. To escape from it, you have to use `ctrl+d` (2x if you are in the middle of a text).
 
 ### 3. Piped Stream Mode (Native Unix Architecture)
 
@@ -87,20 +87,19 @@ The validator sequentially steps through a file stream and routes evaluation via
 - **UTF-16 Surrogate Pairs Boundaries:** The 1st byte equals `0xED` and the 2nd byte is between `0x80` and `0xBF`.
 - **Truncation Safeguards:** Detects unexpected EOF mid-sequence.
 
-## Limitations
+## Known bug
 
-- The program uses a simple filename string instead of an actual path. Which mean that the test files have to be inside the working directory.
-- The program only read files and can't accepts folders or any raw bytes parsed into it.
+- Only the 1st string is read and validate when using `-t` flag with multiple input arguments.
 
 ## Roadmap / TODO
 
 - [x] Implement robust **Overlong Encoding** traps (e.g., detecting `0xE0` followed by bytes lower than `0xA0`).
-- [x] Add explicit UTF-16 Surrogate Pair filtering (blocking `0xED` sub-ranges)
+- [x] Add explicit UTF-16 Surrogate Pair filtering (blocking `0xED` sub-ranges).
 - [x] Implement **set of target flags** to explicitly process directories, files, or text codes.
 - [x] Refactor and secure native **stdin piping**.
 - [x] Implement a granular `--debug` to output trace-level evaluation logs.
 - [x] Add a `--show-bytes` flag to dump reconstructed strings to the console.
-- [ ] Inhouse UTF-8 encoder when we want to display each reconstructed character
+- [ ] Inhouse UTF-8 encoder when we want to display each reconstructed character.
 
 ## License
 

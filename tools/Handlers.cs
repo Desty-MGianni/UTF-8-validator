@@ -158,6 +158,8 @@ static class Handlers
         return (ok, total);
     }
 
+    //BUG: For this command Script/utf8-validator -t \x23\x22 --show \xAC, only the 1st argument is read
+    //(the flags are extracted successfully)
     //TODO: Refactor this and ParseTextToByte methods
     internal static (bool success, string errorMsg) ReadCLI(string[] remArgs, bool showCharMode)
     {
