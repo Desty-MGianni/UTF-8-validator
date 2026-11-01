@@ -1,13 +1,17 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
-    <!-- Indique que c'est un exécutable (et non une bibliothèque) -->
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Authors>Gianni Mucci</Authors>
   </PropertyGroup>
+
+  <PropertyGroup>
+    <Authors>Gianni Mucci</Authors>
+    <Copyright>Copyright © 2026 Gianni Mucci</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
   <PropertyGroup>
     <RuntimeIdentifiers>win-x64;linux-x64;osx-x64</RuntimeIdentifiers>
     <PublishSelfContained>true</PublishSelfContained>

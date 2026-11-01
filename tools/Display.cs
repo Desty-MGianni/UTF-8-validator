@@ -1,4 +1,4 @@
-namespace Utf8Validator.tools;
+namespace Utf8Validator.Tools;
 
 static class Display
 {

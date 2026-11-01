@@ -2,41 +2,48 @@
  * Copyright (c) 2026 Gianni Mucci
  *
  * This source code is licensed under the MIT license found in the
- * README.md file in the root directory of this source tree.
+ * LICENSE file in the root directory of this source tree.
  */
 
-// Personnal reproduction in C# of the UTF-8 validator shown by Dave Eddy from the YouTube channel You Suck At Programming.
-
-/* EXPLANATION OF THE UTF-8 STANDARD
-* ---------------------------------
-* To codify any characters from humankind, we uses UNICODE code points,
-* which we restranscript in computer language with the
-* UTF-8, UTF-16 or UTF-32 standards.
-*
-* UTF-8 can uses UP TO 4 octets, detailed like this :
-*
-* the first octet (or the "leftmost" octet of the series will determine
-* the number of continuation bytes necessary.
-*
-*  0XXXXXXX -> 1 octet (ASCII table)
-*  110XXXXX -> 2 octet
-*  1110XXXX -> 3 octet
-*  11110XXX -> 4 octet
-*
-* When we encode U+10FFFF in UTF-8 (the largest codepoint available
-* for the standard), the first octet will be 11110100 -> 0xF4.
-*
-* On top of that, the Values 0xC0 and 0xC1 are not permitted
-* by the UTF-8 standard.
-*
-* Any other value for the first octet is invalid UTF-8.
-*
-* The continuation bytes are all the same, following this convention :
-*     10XXXXXX
-*/
-
-/* BEHAVIOUR OF THE PROGRAM
-* ---------------------------------
+/*
+ *
+ * Personnal reproduction in C# of the UTF-8 validator made and shown by Dave Eddy
+ * from the YouTube channel You Suck At Programming.
+ * (https://www.youtube.com/watch?v=7taRssuPB8E)
+ *
+ * EXPLANATION OF THE UTF-8 STANDARD
+ * ---------------------------------
+ * To codify any characters from humankind, we uses UNICODE code points,
+ * which we restranscript in computer language with the
+ * UTF-8, UTF-16 or UTF-32 standards.
+ *
+ * UTF-8 can uses UP TO 4 octets, detailed like this :
+ *
+ * the first octet (or the "leftmost" octet of the series will determine
+ * the number of continuation bytes necessary.
+ *
+ *  0XXXXXXX -> 1 octet (ASCII table)
+ *  110XXXXX -> 2 octet
+ *  1110XXXX -> 3 octet
+ *  11110XXX -> 4 octet
+ *
+ * When we encode U+10FFFF in UTF-8 (the largest codepoint available
+ * for the standard), the first octet will be 11110100 -> 0xF4.
+ *
+ * On top of that, the Values 0xC0 and 0xC1 are not permitted
+ * by the UTF-8 standard.
+ *
+ * Any other value for the first octet is invalid UTF-8.
+ *
+ * The continuation bytes are all the same, following this convention :
+ *     10XXXXXX
+ *
+ *
+ * BEHAVIOUR OF THE PROGRAM
+ * ---------------------------------
+ *
+ * The static Handlers class inside the Tools namespace allows this program to
+ * be flexible. It allows
  *
  * This program will immediately stop when an error is detected,
  * showing the byte value and the position.
@@ -55,7 +62,7 @@
 
 namespace Utf8Validator;
 
-using Utf8Validator.tools;
+using Utf8Validator.Tools;
 
 class Program
 {

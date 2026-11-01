@@ -10,7 +10,9 @@ Here is a link to [the YouTube video](https://www.youtube.com/watch?v=7taRssuPB8
 
 - **Strict Specification Matching:** Correctly differentiates between ASCII (`0x00`-`0x7F`), continuation bytes (`0x80`-`0xBF`), and structural leading bytes.
 - **Forbidden Value Detection:** Rejects invalid standalone bytes like `0xC0`, `0xC1`, or any value above `0xF4` that exceeds the `U+10FFFF` Unicode limit.
-- **Overlong and Surrogate Pairs Verification:** Detect the number of continuous bytes needed and check if theirs values are valid (see [below](#technical-architecture))
+- **Overlong and Surrogate Pairs Verification:** Automatically calculates expected continuation bytes and strictly enforces non-overlong boundaries and UTF-16 surrogate blocks.
+  **Flexible Input Routing:** Seamlessly processes directories (`-d`), file lists (`-f`), textual hex escape representations (`-t`), or raw piped binary streams via standard input.
+- **Smart Stdin Pipe Detection:** Automatically senses if data is being piped (`|`) or redirected (`<`), adjusting its interface without freezing or requiring tedious arguments.
 - **Batch Processing:** Pass multiple file paths at once to test batches of files simultaneously.
 - **Colorized CLI Output:** Instant visual cues for testing workflows (`[error]` prints in bright red).
 
@@ -20,40 +22,47 @@ Here is a link to [the YouTube video](https://www.youtube.com/watch?v=7taRssuPB8
 
 - .NET 8.0 SDK or later.
 
-### Clone the Repository
+### Clone and Compile
 
 ```bash
 git clone https://github.com/Desty-MGianni/UTF-8-validator
 cd utf8-validator
-```
-
-### Compile the program
-
-```bash
-dotnet publish
+dotnet publish -c Release
 ```
 
 ## Usage
 
-Run the validator by passing one or multiple file paths as arguments to your compiled binary.
+The tool adapts dynamically to how you invoke it.
+
+### 1. File & Directory Scanning (Batch Mode)
 
 ```bash
-./Script/UTF-8\ Validator [Flags] (arguments)
+# Scan specific files
+./utf8-validator -f file1.txt path/to/file2.log
+
+# Scan all files within directories
+./utf8-validator -d path/to/project /var/log/
 ```
 
-### Example Outputs
+### 2. Hex/Text Suffix Generation Mode
 
-**When all files are valid:**
-
-```text
-All tests passed successfully!
+```bash
+# Manually parse hex formatting directly into real byte values (printf syntax)
+./utf8-validator -t "\xAC\x41\x42"
 ```
 
-**When corruption is found:**
+When no argumens are given after the flag, the program prompt the user via stdin. To escape from it
 
-```text
-[error] [bad_file.txt] The first byte of the UTF-8 character is invalid: 255 -> FF
-1/2 tests has been successful
+### 3. Piped Stream Mode (Native Unix Architecture)
+
+No flags are required when piping data. The application instantly switches to streaming mode upon detecting input redirection:
+
+```bash
+# Pipe raw binary bytes from another tool
+printf "\xFF" | ./utf8-validator
+
+# Redirect a binary payload directly into the standard input
+./utf8-validator < firmware.bin
 ```
 
 ## Technical Architecture
@@ -82,37 +91,13 @@ The validator sequentially steps through a file stream and routes evaluation via
 
 - [x] Implement robust **Overlong Encoding** traps (e.g., detecting `0xE0` followed by bytes lower than `0xA0`).
 - [x] Add explicit UTF-16 Surrogate Pair filtering (blocking `0xED` sub-ranges)
-- [x] Implement **set of flags** to notify the program the type of media wegive it (`-d`, `-f` or `-t`).
-- [ ] Change project names for a easier to type and use experience.
-- [x] Add a _stdin_ read when `-t` flag is used solo.
-- [ ] Implement `--debug` flag.
-- [ ] Add a `-s` flag to show each characters successfuly read.
-- [ ] Redo the [usage section](#Usage)
+- [x] Implement **set of target flags** to explicitly process directories, files, or text codes.
+- [x] Refactor and secure native **stdin piping**.
+- [ ] Implement a granular `--debug` matrix to output trace-level evaluation logs.
+- [ ] Add a `-s` flag to dump reconstructed strings to the console.
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the **MIT License**.
 
-```text
-MIT License
-
-Copyright (c) 2026 Gianni Mucci
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
+See the [LICENSE](./LICENSE) file for the full license text.
