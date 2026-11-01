@@ -53,427 +53,63 @@
 
 //TODO: Flag to show the text read from source ("reconstructed" from the bytes we read)
 
-int total = 0;
-int ok = 0;
+namespace Utf8Validator;
 
-if (args.Length == 0)
+using Utf8Validator.tools;
+
+class Program
 {
-    // this check is for printf piping into this program.
-    if (Console.IsInputRedirected)
+    static void Main(string[] args)
     {
-        total++;
-        (bool success, string errorMsg) = ReadStdin();
+        int total = 0;
+        int ok = 0;
 
-        if (!success)
-            DisplayError("stdin piping", errorMsg);
-        else
+        if (args.Length == 0)
         {
-            DisplaySuccess("stdin piping");
-            ok++;
+            // this check is for printf piping into this program.
+            if (Console.IsInputRedirected)
+            {
+                total++;
+                (bool success, string errorMsg) = Handlers.ReadStdin();
+
+                if (!success)
+                    Display.Error("stdin piping", errorMsg);
+                else
+                {
+                    Display.Success("stdin piping");
+                    ok++;
+                }
+
+                CheckResult(ok, total);
+                return;
+            }
+            // if the user enter noting, we show how to use the program
+            else
+            {
+                Display.Usage();
+                return;
+            }
         }
 
-        CheckResult(ok, total);
-        return;
-    }
-    // if the user enter noting, we show how to use the program
-    else
-    {
-        DisplayUsage();
-        return;
-    }
-}
-
-switch (args[0])
-{
-    case "-d":
-        (ok, total) = HandleDirectory(args[1..]);
-        break;
-    case "-f":
-        (ok, total) = HandleFiles(args[1..]);
-        break;
-    case "-t":
-        (ok, total) = HandleText(args[1..]);
-        break;
-    case "-s":
-    // TODO: Add 2nd argument logic for `--debug` flag
-    case "--debug":
-    default:
-        DisplayUsage();
-        break;
-}
-
-CheckResult(ok, total);
-
-static void CheckResult(int ok, int total)
-{
-    //TODO: toggle for when a -s flag is present
-    if (ok == total)
-        DisplaySuccessSummary();
-    else if (total > 0)
-    {
-        DisplayErrorSummary(ok, total);
-    }
-}
-
-static (int ok, int total) HandleDirectory(string[] args)
-{
-    int ok = 0;
-    int total = 0;
-    if (args.Length == 0)
-    {
-        DisplayError("Directory", $"No arguments given for directories. Use -h to show the usage");
-        return (0, 0);
-    }
-    foreach (string dir in args)
-    {
-        if (!Directory.Exists(dir))
+        (ok, total) = args[0] switch
         {
-            DisplayError(dir, $"Directory {dir} is not found");
-            total++;
-        }
-        string[] Files = Directory.GetFiles(dir);
-        (int currentOk, int currentTotal) = HandleFiles(Files);
-        ok += currentOk;
-        total += currentTotal;
-    }
-    return (ok, total);
-}
-
-static (int ok, int total) HandleFiles(string[] filePath)
-{
-    int total = 0;
-    int ok = 0;
-    foreach (string filename in filePath)
-    {
-        total++;
-        if (!File.Exists(filename))
-        {
-            DisplayError(filename, $"File does not exist in the current directory");
-            continue;
-        }
-
-        DisplayInfo($"Reading {filename}");
-
-        Stream data = new FileStream(filename, FileMode.Open);
-        (bool success, string errorMsg) = Validator(data);
-        if (success)
-        {
-            DisplaySuccess(filename);
-            ok++;
-        }
-        else
-        {
-            DisplayError(filename, errorMsg);
-        }
-    }
-
-    return (ok, total);
-}
-
-static (int ok, int total) HandleText(string[] args)
-{
-    // C# only permets a string[] for the CLI arguments input.
-    // This method bypass the C# logic and permit 2 use cases :
-    //    - with argument after the flag -> uses manual parsing
-    //    - without argument after the flag -> uses stdin ??????
-
-    int ok = 0;
-    int total = 1;
-    bool success;
-    string errorMsg;
-
-    // If the user type bytes as CLI Arguments,
-    // we manually parse each character in the string
-    // into a byte following the printf command syntax
-    //
-    // (\xFA become real 0xFA byte)
-    if (args.Length >= 1)
-    {
-        (success, errorMsg) = ReadCLI(args[1..]);
-        if (success)
-        {
-            DisplaySuccess("CLI Bytes");
-            ok++;
-        }
-        else
-        {
-            DisplayError("CLI bytes", errorMsg);
-        }
-    }
-    else
-    {
-        (success, errorMsg) = ReadStdin();
-        if (!success)
-        {
-            DisplayError("Stdin bytes", errorMsg);
-        }
-        else
-        {
-            DisplaySuccess("stdin");
-            ok++;
-        }
-    }
-    // No other argument in args : we prompt the user via stdin
-    return (ok, total);
-}
-
-static (bool success, string errorMsg) ReadCLI(string[] text)
-{
-    DisplayInfo("Reading CLI arguments");
-    (bool success, byte[] output, string errorMsg) = ParseTextToBytes(text[0]);
-    if (!success)
-    {
-        return (false, errorMsg);
-    }
-
-    Stream inputStream = new MemoryStream(output);
-    return Validator(inputStream);
-}
-
-static (bool success, string errorMsg) ReadStdin()
-{
-    DisplayInfo("Reading stdin");
-    Stream stdin = Console.OpenStandardInput();
-    return Validator(stdin);
-}
-static (bool, byte[], string errorMsg) ParseTextToBytes(string text)
-{
-    static byte? ConvertCharToByte(char c) =>
-        c switch
-        {
-            '0' => 0,
-            '1' => 1,
-            '2' => 2,
-            '3' => 3,
-            '4' => 4,
-            '5' => 5,
-            '6' => 6,
-            '7' => 7,
-            '8' => 8,
-            '9' => 9,
-            'A' or 'a' => 10,
-            'B' or 'b' => 11,
-            'C' or 'c' => 12,
-            'D' or 'd' => 13,
-            'E' or 'e' => 14,
-            'F' or 'f' => 15,
-            _ => null,
+            "-d" => Handlers.Dirs(args[1..]),
+            "-f" => Handlers.Files(args[1..]),
+            "-t" => Handlers.Text(args[1..]),
+            _ => (0, 0),
         };
 
-    /*
-     * for a result of 0xAF in hex :
-     * e1 = A
-     * e0 = F
-     */
-    byte? e0 = null,
-        e1 = null;
-    byte[] buffer = new byte[text.Length];
-    int idx = 0;
-    bool success = default;
-    string errorMsg = string.Empty;
-
-    foreach (char c in text)
-    {
-        if (c == '\\' || c == 'x')
-            continue;
-
-        errorMsg = $"Invalid character detected when parsing text to byte: {c}";
-        // This initial null check is necessary to "advance the pointer".
-        if (e1 is null)
-        {
-            e1 = ConvertCharToByte(c);
-            if (e1 is null)
-            {
-                success = false;
-                break;
-            }
-            else
-                continue;
-        }
-
-        e0 ??= ConvertCharToByte(c);
-        if (e0 is null)
-        {
-            success = false;
-            break;
-        }
-
-        byte value = (byte)(e1 * 16 + e0);
-        buffer[idx] = value;
-        idx++;
-
-        e0 = null;
-        e1 = null;
-
-        //TODO: debug and show detection here to display each byte
-        Console.Write($"{value:X2} ");
-
-        success = true;
+        // TODO: Add 2nd argument logic for `--debug` flag
+        CheckResult(ok, total);
     }
-    Console.Write("\n");
-    return (success, buffer, errorMsg);
-}
 
-static (bool success, string msg) Validator(Stream s)
-{
-    int position = 0;
-    int currentByte,
-        nextByte;
-    string msg = string.Empty;
-
-    while (true)
+    static void CheckResult(int ok, int total)
     {
-        currentByte = s.ReadByte();
-        position++;
-
-        if (IsEOF(currentByte))
-            break;
-
-        byte firstByte = (byte)currentByte;
-
-        if (IsASCIICharacter(firstByte))
+        if (ok == total)
+            Display.SuccessSummary();
+        else if (total > 0)
         {
-            //reset byte counter (start another character)
-            continue;
-        }
-
-        // Here,the byte is not an ASCII character -> multi-byte character.
-        // We verify if the first byte is valid
-
-        if (!IsFirstByteValid(firstByte))
-        {
-            msg =
-                $"The first byte of the UTF-8 character is invalid: {firstByte} -> {firstByte:X}. [byte nº{position}]";
-            return (false, msg);
-        }
-
-        int CByteNeeded = ContinuationByteNeeded(firstByte);
-
-        byte[] ch = new byte[4];
-        ch[0] = (byte)currentByte;
-
-        // Start at 1 as the ch[0] is already populated at this point.
-        for (int i = 1; i <= CByteNeeded; i++)
-        {
-            nextByte = s.ReadByte();
-            position++;
-
-            if (IsEOF(nextByte))
-            {
-                msg = "EOF reached when a multi-byte character has not been completely consumed.";
-                return (false, msg);
-            }
-
-            byte b = (byte)nextByte;
-
-            if (!IsContinuationByte(b))
-            {
-                msg =
-                    $"Expected continuation byte at byte, but got: {b} -> {b:X}. [byte nº{position}]";
-                return (false, msg);
-            }
-
-            // We verify the value of the 2nd octet
-            // to validate the overlong rule in UTF-8.
-            // (we do it on the first iteration of the loop)
-            if (i == 1 && IsOverlong(b, CByteNeeded))
-            {
-                msg = $"Overlong Encoding detected: {b} -> {b:X}. [byte nº{position}]";
-                return (false, msg);
-            }
-
-            // Once all the check are valid, we "push" the byte
-            // into the array for the surrogate check.
-            ch[i] = b;
-        }
-
-        // The UTF-16 surrogates uses 3 octets and are between
-        // 0xED 0xA0 0x80 and 0xED 0xBF-lxBF
-        if (CByteNeeded == 2 && IsUTF16Surrogate(ch))
-        {
-            msg = $"UTF-16 surrogate pairs detected: {ch[0]:X}{ch[1]:X}";
-            return (false, msg);
+            Display.ErrorSummary(ok, total);
         }
     }
-    s.Close();
-    return (true, msg);
-}
-
-static void DisplayUsage() { }
-
-static void DisplayInfo(string msg)
-{
-    Console.Write("\u001b[34m[INFO]\u001b[0m ");
-    Console.Write(msg + "\n");
-}
-
-// Here, section is either the name of the file/directory or the string
-// Raw Bytes for when we hande CLI / stdin arguments
-static void DisplayError(string section, string msg)
-{
-    Console.Write("\u001b[31m[ERROR]\u001b[0m");
-    Console.Write($"[{section}] {msg}\n");
-}
-
-static void DisplaySuccess(string section)
-{
-    Console.Write("\u001b[32m[OK]\u001b[0m");
-    Console.Write($"[{section}] All the tests are successful\n");
-}
-
-static void DisplaySuccessSummary()
-{
-    Console.WriteLine();
-    Console.Write("\u001b[32mAll test passed successfuly\u001b[0m\n");
-}
-
-static void DisplayErrorSummary(int ok, int total)
-{
-    Console.WriteLine();
-    Console.Write(ok);
-    Console.Write("\u001b[33m/\u001b[0m");
-    Console.Write(total);
-    Console.Write($" \u001b[33mtests has been successful\u001b[0m\n");
-}
-
-static int ContinuationByteNeeded(byte b)
-{
-    return b switch
-    {
-        >= 0xC2 and <= 0xDF => 1,
-        >= 0xE0 and <= 0xEF => 2,
-        >= 0xF0 and <= 0xF4 => 3,
-        _ => 0,
-    };
-}
-
-static bool IsOverlong(byte b, int nbCByte)
-{
-    return nbCByte switch
-    {
-        1 => b < 0xA0,
-        2 => b < 0x90,
-        3 => b > 0x8F,
-        _ => false,
-    };
-}
-
-static bool IsEOF(int b) => b < 0;
-
-static bool IsUTF16Surrogate(byte[] b) => b[0] == 0xED && b[1] >= 0xA0 && b[1] <= 0xBF;
-
-static bool IsContinuationByte(byte b) => b >= 0x80 && b <= 0xBF;
-static bool IsASCIICharacter(byte b) => b <= 0x7F;
-static bool IsFirstByteValid(byte b)
-{
-    if (IsContinuationByte(b))
-        return false;
-
-    if (b == 0xC0 || b == 0xC1)
-        return false;
-
-    if (b >= 0xF5)
-        return false;
-
-    return true;
 }
