@@ -56,10 +56,6 @@
  *
  */
 
-//TODO: Add debug flag so that only the errors or the finished message is shown.
-
-//TODO: Flag to show the text read from source ("reconstructed" from the bytes we read)
-
 namespace Utf8Validator;
 
 using Utf8Validator.Tools;
@@ -68,45 +64,51 @@ class Program
 {
     static void Main(string[] args)
     {
-        int total = 0;
-        int ok = 0;
+        List<string> remArgs = [.. args];
 
-        if (args.Length == 0)
+        // Filter global flags. The user can type them where
+        // he want inside the array of arguments.
+        bool debugMode = remArgs.Remove("--debug");
+        bool showBytesMode = remArgs.Remove("--show");
+
+        GlobalFlags gFlags = (debugMode, showBytesMode) switch
         {
-            // this check is for printf piping into this program.
-            if (Console.IsInputRedirected)
-            {
-                total++;
-                (bool success, string errorMsg) = Handlers.ReadStdin();
-
-                if (!success)
-                    Display.Error("stdin piping", errorMsg);
-                else
-                {
-                    Display.Success("stdin piping");
-                    ok++;
-                }
-
-                CheckResult(ok, total);
-                return;
-            }
-            // if the user enter noting, we show how to use the program
-            else
-            {
-                Display.Usage();
-                return;
-            }
-        }
-
-        (ok, total) = args[0] switch
-        {
-            "-d" => Handlers.Dirs(args[1..]),
-            "-f" => Handlers.Files(args[1..]),
-            "-t" => Handlers.Text(args[1..]),
-            _ => (0, 0),
+            (true, true) => GlobalFlags.All,
+            (true, false) => GlobalFlags.Debug,
+            (false, true) => GlobalFlags.ShowChar,
+            (false, false) => GlobalFlags.None,
         };
 
-        // TODO: Add 2nd argument logic for `--debug` flag
+        // CommandFlags flags
+        if (remArgs.Count == 0)
+        {
+            if (Console.IsInputRedirected)
+            {
+                bool success = Handlers.PipingOrIndirection(gFlags);
+                CheckResult(success ? 1 : 0, 1);
+            }
+            else
+                Display.Usage();
+            return;
+        }
+
+        string mainFlag = remArgs[0];
+        string[] comArgs = remArgs.ToArray()[1..];
+
+        (int ok, int total) = mainFlag switch
+        {
+            "-d" => Handlers.Dirs(comArgs, gFlags),
+            "-f" => Handlers.Files(comArgs, gFlags),
+            "-t" => Handlers.Text(comArgs, gFlags),
+            _ => (0, 0), // Captures -h, --help or unknown flags
+        };
+
+        if (total == 0)
+        {
+            Display.Usage();
+            return;
+        }
+
         CheckResult(ok, total);
     }
 

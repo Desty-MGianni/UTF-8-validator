@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace Utf8Validator.Tools;
 
 static class Display
@@ -13,18 +15,27 @@ static class Display
     internal static void Error(string section, string msg)
     {
         Console.Write("\u001b[31m[ERROR]\u001b[0m");
-        Console.Write($"[{section}] {msg}\n");
+        Console.Write($"\u001b[2m[{section}]\u001b[0m ");
+        Console.Write($"{msg}\n");
     }
 
     internal static void Success(string section)
     {
         Console.Write("\u001b[32m[OK]\u001b[0m");
-        Console.Write($"[{section}] All the tests are successful\n");
+        Console.Write($"\u001b[2m[{section}]\u001b[0m ");
+        Console.Write($"Valid UTF-8 string\n");
+    }
+
+    //TODO: In house UTF-8 encoding logic.
+    internal static void Character(ReadOnlySpan<byte> validSequence)
+    {
+        string character = Encoding.UTF8.GetString(validSequence);
+        Console.Write(character);
     }
 
     internal static void SuccessSummary()
     {
-        Console.WriteLine();
+        Console.Write("\n");
         Console.Write("\u001b[32mAll test passed successfuly\u001b[0m\n");
     }
 
@@ -37,6 +48,52 @@ static class Display
         Console.Write($" \u001b[33mtests has been successful\u001b[0m\n");
     }
 
-    //TODO: Pretty and consise Usage instructions.
-    internal static void Usage() { }
+    internal static void Usage()
+    {
+        Console.Write("\u001b[36m=== UTF-8 CLI VALIDATOR ===\u001b[0m\n");
+        Console.Write("A strict, high-performance RFC 3629 compliance checker.\n");
+        Console.Write("\n");
+
+        Console.Write("\u001b[33mUSAGE:\u001b[0m\n");
+        Console.Write("  ./utf8-validator [GLOBAL FLAGS] [TARGET FLAG] [ARGUMENTS...]\n");
+        Console.Write("  [COMMAND] | ./utf8-validator [GLOBAL FLAGS]\n");
+        Console.Write("\n");
+
+        Console.Write("\u001b[33mGLOBAL FLAGS:\u001b[0m (Can be placed anywhere)\n");
+        Console.Write(
+            "  \u001b[35m--debug\u001b[0m             Enable granular evaluation logs and bitmask routing traces.\n"
+        );
+        Console.Write(
+            "  \u001b[35m--show-bytes\u001b[0m        Dump the reconstructed characters step-by-step upon validation.\n"
+        );
+        Console.Write("\n");
+
+        Console.Write("\u001b[33mTARGET FLAGS:\u001b[0m\n");
+        Console.Write(
+            "  \u001b[32m-f <files...>\u001b[0m       Validate one or multiple specific file paths.\n"
+        );
+        Console.Write(
+            "  \u001b[32m-d <directories...>\u001b[0m Validate all files within one or multiple directories.\n"
+        );
+        Console.Write(
+            "  \u001b[32m-t <hex_string>\u001b[0m     Parse and validate a literal hex string using printf syntax.\n"
+        );
+        Console.Write("                      (e.g., \"\\xAC\\x41\\x42\")\n");
+        Console.Write("  \u001b[32m-h, --help\u001b[0m          Show this help usage menu.\n");
+        Console.Write("\n");
+
+        Console.Write("\u001b[33mEXAMPLES:\u001b[0m\n");
+        Console.Write("  \u001b[34m# Batch file validation:\u001b[0m\n");
+        Console.Write("  ./utf8-validator -f document.txt logs/app.log\n");
+        Console.Write("\n");
+
+        Console.Write("  \u001b[34m# Directory scanning:\u001b[0m\n");
+        Console.Write("  ./utf8-validator -d ./src /var/log\n");
+        Console.Write("\n");
+
+        Console.Write("  \u001b[34m# Native Unix Piping (Automatic Stdin detection):\u001b[0m\n");
+        Console.Write("  printf \"\\xFF\" | ./utf8-validator\n");
+        Console.Write("  ./utf8-validator < firmware.bin\n");
+        Console.Write("\n");
+    }
 }

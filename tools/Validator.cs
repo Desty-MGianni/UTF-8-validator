@@ -2,7 +2,7 @@ namespace Utf8Validator.Tools;
 
 static class Validator
 {
-    internal static (bool success, string errorMsg) Run(Stream s)
+    internal static (bool success, string errorMsg) Run(Stream s, bool showCharMode)
     {
         int position = 0;
         int currentByte,
@@ -82,6 +82,13 @@ static class Validator
             {
                 msg = $"UTF-16 surrogate pairs detected: {ch[0]:X}{ch[1]:X}";
                 return (false, msg);
+            }
+
+            if (showCharMode)
+            {
+                int byteCount = CByteNeeded + 1;
+                ReadOnlySpan<byte> valid = ch.AsSpan(0, byteCount);
+                Display.Character(valid);
             }
         }
         s.Close();

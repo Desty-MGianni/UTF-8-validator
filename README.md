@@ -12,6 +12,7 @@ Here is a link to [the YouTube video](https://www.youtube.com/watch?v=7taRssuPB8
 - **Forbidden Value Detection:** Rejects invalid standalone bytes like `0xC0`, `0xC1`, or any value above `0xF4` that exceeds the `U+10FFFF` Unicode limit.
 - **Overlong and Surrogate Pairs Verification:** Automatically calculates expected continuation bytes and strictly enforces non-overlong boundaries and UTF-16 surrogate blocks.
   **Flexible Input Routing:** Seamlessly processes directories (`-d`), file lists (`-f`), textual hex escape representations (`-t`), or raw piped binary streams via standard input.
+- **Flexible Output Routing** Different output layers via `--debug` and `--show` global flags.
 - **Smart Stdin Pipe Detection:** Automatically senses if data is being piped (`|`) or redirected (`<`), adjusting its interface without freezing or requiring tedious arguments.
 - **Batch Processing:** Pass multiple file paths at once to test batches of files simultaneously.
 - **Colorized CLI Output:** Instant visual cues for testing workflows (`[error]` prints in bright red).
@@ -33,22 +34,26 @@ dotnet publish -c Release
 ## Usage
 
 The tool adapts dynamically to how you invoke it.
+Both global flags (`--global` and `--show`) can be added anywhere inside the argument list.
 
 ### 1. File & Directory Scanning (Batch Mode)
 
 ```bash
 # Scan specific files
-./utf8-validator -f file1.txt path/to/file2.log
+./utf8-validator -f file1.txt path/to/file2.log --debug
 
 # Scan all files within directories
 ./utf8-validator -d path/to/project /var/log/
+
+# With a global flag in the middle
+./utf8-validator -t "\x23\x33" --show "\x0a\x99"
 ```
 
 ### 2. Hex/Text Suffix Generation Mode
 
 ```bash
 # Manually parse hex formatting directly into real byte values (printf syntax)
-./utf8-validator -t "\xAC\x41\x42"
+./utf8-validator -t --debug "\xAC\x41\x42"
 ```
 
 When no argumens are given after the flag, the program prompt the user via stdin. To escape from it
@@ -93,8 +98,9 @@ The validator sequentially steps through a file stream and routes evaluation via
 - [x] Add explicit UTF-16 Surrogate Pair filtering (blocking `0xED` sub-ranges)
 - [x] Implement **set of target flags** to explicitly process directories, files, or text codes.
 - [x] Refactor and secure native **stdin piping**.
-- [ ] Implement a granular `--debug` matrix to output trace-level evaluation logs.
-- [ ] Add a `-s` flag to dump reconstructed strings to the console.
+- [x] Implement a granular `--debug` to output trace-level evaluation logs.
+- [x] Add a `--show-bytes` flag to dump reconstructed strings to the console.
+- [ ] Inhouse UTF-8 encoder when we want to display each reconstructed character
 
 ## License
 
