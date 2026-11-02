@@ -11,33 +11,6 @@
  * from the YouTube channel You Suck At Programming.
  * (https://www.youtube.com/watch?v=7taRssuPB8E)
  *
- * EXPLANATION OF THE UTF-8 STANDARD
- * ---------------------------------
- * To codify any characters from humankind, we uses UNICODE code points,
- * which we restranscript in computer language with the
- * UTF-8, UTF-16 or UTF-32 standards.
- *
- * UTF-8 can uses UP TO 4 octets, detailed like this :
- *
- * the first octet (or the "leftmost" octet of the series will determine
- * the number of continuation bytes necessary.
- *
- *  0XXXXXXX -> 1 octet (ASCII table)
- *  110XXXXX -> 2 octet
- *  1110XXXX -> 3 octet
- *  11110XXX -> 4 octet
- *
- * When we encode U+10FFFF in UTF-8 (the largest codepoint available
- * for the standard), the first octet will be 11110100 -> 0xF4.
- *
- * On top of that, the Values 0xC0 and 0xC1 are not permitted
- * by the UTF-8 standard.
- *
- * Any other value for the first octet is invalid UTF-8.
- *
- * The continuation bytes are all the same, following this convention :
- *     10XXXXXX
- *
  *
  * BEHAVIOUR OF THE PROGRAM
  * ---------------------------------
@@ -56,53 +29,75 @@
  *
  */
 
-//TODO: Change each array's into Span<T> or ReadOnlySpan<T> for better performances
 namespace Utf8Validator;
 
+using System.Buffers;
 using Utf8Validator.Tools;
 
 class Program
 {
     static void Main(string[] args)
     {
-        List<string> remArgs = [.. args];
+        ReadOnlySpan<string> argsSpan = args.AsSpan();
+        int ok = 0;
+        int total = 0;
 
-        // Filter global flags. The user can type them where
-        // he want inside the array of arguments.
-        bool debugMode = remArgs.Remove("--debug");
-        bool showBytesMode = remArgs.Remove("--show");
+        // Loop through the args to find the flags
+        (GlobalFlags gf, TargetFlags tf, int realArgsCount) = ExtractFlags(argsSpan);
 
-        GlobalFlags gFlags = (debugMode, showBytesMode) switch
+        if (gf == GlobalFlags.Invalid || tf == TargetFlags.Invalid)
         {
-            (true, true) => GlobalFlags.All,
-            (true, false) => GlobalFlags.Debug,
-            (false, true) => GlobalFlags.ShowChar,
-            (false, false) => GlobalFlags.None,
-        };
-
-        // CommandFlags flags
-        if (remArgs.Count == 0)
-        {
-            if (Console.IsInputRedirected)
-            {
-                bool success = Handlers.PipingOrIndirection(gFlags);
-                CheckResult(success ? 1 : 0, 1);
-            }
-            else
-                Display.Usage();
+            Display.Usage();
             return;
         }
 
-        string mainFlag = remArgs[0];
-        string[] comArgs = remArgs.ToArray()[1..];
-
-        (int ok, int total) = mainFlag switch
+        // No target flags detected + input redirected = piping used
+        if (tf == TargetFlags.None && Console.IsInputRedirected)
         {
-            "-d" => Handlers.Dirs(comArgs, gFlags),
-            "-f" => Handlers.Files(comArgs, gFlags),
-            "-t" => Handlers.Text(comArgs, gFlags),
-            _ => (0, 0), // Captures -h, --help or unknown flags
-        };
+            bool showCharMode = Utils.CheckFlagValue(gf, GlobalFlags.ShowChar);
+            bool debugMode = Utils.CheckFlagValue(gf, GlobalFlags.Debug);
+
+            (ok, total) = Handlers.Piping(debugMode, showCharMode);
+            CheckResult(ok, total);
+
+            return;
+        }
+
+        // This ArrayPool usage avoids temporary heap allocations
+        // and reduces Garbage Collection pressure by recycling the array.
+        string[] sharedArray = ArrayPool<string>.Shared.Rent(realArgsCount);
+
+        // As we need to return the array, we need a scope in which we
+        // can convert the array into a Span without data corruption
+        try
+        {
+            // logic to extract all the arguments that aren't the flags.
+            int WriteIdx = 0;
+            for (int i = 0; i < argsSpan.Length; i++)
+            {
+                string arg = argsSpan[i];
+                if (arg.StartsWith('-'))
+                    continue;
+                sharedArray[WriteIdx] = arg;
+                WriteIdx++;
+            }
+
+            // slicing of the argument array.
+            ReadOnlySpan<string> remArgs = sharedArray.AsSpan(0, realArgsCount);
+
+            // We don't need to care if gf == none or invalid
+            (ok, total) = tf switch
+            {
+                TargetFlags.Directory => Handlers.Dirs(remArgs, gf),
+                TargetFlags.File => Handlers.Files(remArgs, gf),
+                TargetFlags.Text => Handlers.Text(remArgs, gf),
+                _ => (0, 0),
+            };
+        }
+        finally
+        {
+            ArrayPool<string>.Shared.Return(sharedArray);
+        }
 
         if (total == 0)
         {
@@ -113,7 +108,34 @@ class Program
         CheckResult(ok, total);
     }
 
-    static void CheckResult(int ok, int total)
+    // For a an enum with the flag attribute :
+    // To add a flag        : gf |= GlobalFlags.X
+    // to remove a flag     : gf &= GlobalFlags.X
+    static (GlobalFlags, TargetFlags, int realArgsCount) ExtractFlags(ReadOnlySpan<string> argsSpan)
+    {
+        GlobalFlags gf = GlobalFlags.None;
+        TargetFlags tf = TargetFlags.None;
+
+        int cleanCount = 0;
+
+        for (int i = 0; i < argsSpan.Length; i++)
+        {
+            if (argsSpan[i].StartsWith("--"))
+            {
+                gf |= Utils.ConvertToGFlags(argsSpan[i]);
+            }
+            else if (argsSpan[i].StartsWith('-'))
+            {
+                tf |= Utils.ConvertToTFlags(argsSpan[i]);
+            }
+            else
+                cleanCount++;
+        }
+
+        return (gf, tf, cleanCount);
+    }
+
+    private static void CheckResult(int ok, int total)
     {
         if (ok == total)
             Display.SuccessSummary();

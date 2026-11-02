@@ -2,10 +2,10 @@ namespace Utf8Validator.Tools;
 
 static class Handlers
 {
-    internal static (int ok, int total) Dirs(string[] args, GlobalFlags flags)
+    internal static (int ok, int total) Dirs(ReadOnlySpan<string> args, GlobalFlags flags)
     {
-        bool debugMode = CheckFlagValue(flags, GlobalFlags.Debug);
-
+        string section = "Directories";
+        bool debugMode = Utils.CheckFlagValue(flags, GlobalFlags.Debug);
         int ok = 0;
         int total = 0;
         if (args.Length == 0)
@@ -13,27 +13,29 @@ static class Handlers
             if (debugMode)
             {
                 Display.Error(
-                    "Directory",
+                    section,
                     $"No arguments given for directories. Use -h to show the usage"
                 );
             }
             return (0, 0);
         }
-        foreach (string dir in args)
+        foreach (string arg in args)
         {
             if (debugMode)
             {
-                Display.Info($"Searching through {dir}");
+                Display.Info($"Searching through {arg}");
             }
-            if (!Directory.Exists(dir))
+
+            if (!Directory.Exists(arg))
             {
                 if (debugMode)
                 {
-                    Display.Error(dir, $"Directory {dir} is not found");
+                    Display.Error(arg, $"Directory {arg} is not found");
                 }
                 total++;
+                continue;
             }
-            string[] files = Directory.GetFiles(dir);
+            string[] files = Directory.GetFiles(arg);
             (int currentOk, int currentTotal) = Files(files, flags);
             ok += currentOk;
             total += currentTotal;
@@ -41,10 +43,10 @@ static class Handlers
         return (ok, total);
     }
 
-    internal static (int ok, int total) Files(string[] filePath, GlobalFlags flags)
+    internal static (int ok, int total) Files(ReadOnlySpan<string> filePath, GlobalFlags flags)
     {
-        bool debugMode = CheckFlagValue(flags, GlobalFlags.Debug);
-        bool showCharMode = CheckFlagValue(flags, GlobalFlags.ShowChar);
+        bool debugMode = Utils.CheckFlagValue(flags, GlobalFlags.Debug);
+        bool showCharMode = Utils.CheckFlagValue(flags, GlobalFlags.ShowChar);
 
         int total = 0;
         int ok = 0;
@@ -64,223 +66,77 @@ static class Handlers
 
             Stream data = new FileStream(filename, FileMode.Open);
             (bool success, string errorMsg) = Validator.Run(data, showCharMode);
-            if (success)
-            {
-                ok++;
-                if (debugMode)
-                    Display.Success(filename);
-            }
-            else if (!success && debugMode)
-            {
-                Display.Error(filename, errorMsg);
-            }
+            Result(debugMode, success, filename, errorMsg, ref ok);
         }
 
         return (ok, total);
     }
 
-    internal static bool PipingOrIndirection(GlobalFlags flags)
+    // C# only permets a string[] for the CLI arguments input.
+    // This method bypass the C# logic and permit 2 use cases :
+    //    - with argument after the flag -> uses manual parsing
+    //    - without argument after the flag -> we prompt the user via stdin.
+    internal static (int ok, int total) Text(ReadOnlySpan<string> remArgs, GlobalFlags flags)
     {
-        bool debugMode = CheckFlagValue(flags, GlobalFlags.Debug);
-        bool showCharMode = CheckFlagValue(flags, GlobalFlags.ShowChar);
-
-        if (debugMode)
-            Display.Info("reading stdin");
-        (bool success, string errorMsg) = ReadStdin(showCharMode);
-
-        if (success)
-        {
-            if (debugMode)
-                Display.Success("stdin piping");
-            return true;
-        }
-        else if (debugMode)
-        {
-            Display.Error("stdin piping", errorMsg);
-        }
-        return false;
-    }
-
-    internal static (int ok, int total) Text(string[] remArgs, GlobalFlags flags)
-    {
-        // C# only permets a string[] for the CLI arguments input.
-        // This method bypass the C# logic and permit 2 use cases :
-        //    - with argument after the flag -> uses manual parsing
-        //    - without argument after the flag -> uses stdin ??????
-
-        bool debugMode = CheckFlagValue(flags, GlobalFlags.Debug);
-        bool showCharMode = CheckFlagValue(flags, GlobalFlags.ShowChar);
+        bool debugMode = Utils.CheckFlagValue(flags, GlobalFlags.Debug);
+        bool showCharMode = Utils.CheckFlagValue(flags, GlobalFlags.ShowChar);
 
         int ok = 0;
         int total = 1;
 
         bool success;
         string errorMsg;
+        string section = string.Empty;
 
-        // If the user type bytes as CLI Arguments,
-        // we manually parse each character in the string
+        // If the user type "bytes" in the CLI Arguments,
+        // we manually parse each character from the string
         // into a byte following the printf command syntax
         //
         // (\xFA become real 0xFA byte)
         if (remArgs.Length >= 1)
         {
             if (debugMode)
-                Display.Info("reading cli arguments");
-            (success, errorMsg) = ReadCLI(ref remArgs, showCharMode);
-            if (success)
-            {
-                ok++;
-                if (debugMode)
-                    Display.Success("CLI Bytes");
-            }
-            else if (debugMode)
-            {
-                Display.Error("CLI bytes", errorMsg);
-            }
-        }
-        else
-        {
-            if (debugMode)
-                Display.Info("reading stdin");
-            (success, errorMsg) = ReadStdin(showCharMode);
-            if (success)
-            {
-                ok++;
-                if (debugMode)
-                    Display.Success("stdin");
-            }
-            else if (debugMode)
-            {
-                Display.Error("Stdin bytes", errorMsg);
-            }
+                Display.Info("Reading cli arguments");
+
+            (success, errorMsg) = Readers.CLI(remArgs, showCharMode);
+            Result(debugMode, success, section, errorMsg, ref ok);
         }
         // No other argument in args : we prompt the user via stdin
+        else
+        {
+            Piping(debugMode, showCharMode);
+        }
         return (ok, total);
     }
 
-    //TODO: Refactor this and ParseTextToByte methods
-    internal static (bool success, string errorMsg) ReadCLI(ref string[] remArgs, bool showCharMode)
+    internal static (int ok, int total) Piping(bool debugMode, bool showCharMode)
     {
-        foreach (string text in remArgs)
+        int ok = 0;
+        if (debugMode)
+            Display.Info("Reading stdin");
+
+        (bool success, string errorMsg) = Readers.Stream(showCharMode);
+        Result(debugMode, success, "Stdin", errorMsg, ref ok);
+        return (ok, 1);
+    }
+
+    internal static void Result(
+        bool debugMode,
+        bool success,
+        string section,
+        string errorMsg,
+        ref int ok
+    )
+    {
+        if (success)
         {
-            (bool success, byte[] buffer, string errorMsg) = ParseTextToBytes(text, showCharMode);
-            if (!success)
-                return (false, errorMsg);
-
-            Stream inputstream = new MemoryStream(buffer);
-
-            (success, errorMsg) = Validator.Run(inputstream, showCharMode);
-            if (!success)
-                return (false, errorMsg);
+            ok++;
+            if (debugMode)
+                Display.Success(section);
         }
-        return (true, string.Empty);
-    }
-
-    internal static (bool success, string errorMsg) ReadStdin(bool showCharMode)
-    {
-        Stream stdin = Console.OpenStandardInput();
-        return Validator.Run(stdin, showCharMode);
-    }
-
-    // this method parse string from printf style (\xFF) into raw bytes.
-    // In the actual implementation, the program first go through all of
-
-    // TODO: Change method's signature to accept a Stream instead of string (so I can daisy chain it into the validator)
-
-    // Optimizaton suggested by Gemini
-    //     //
-    // using System.Buffers;
-    //
-    // // Rent a temporary array from global pool.
-    // byte[] buffer = ArrayPool<byte>.Shared.Rent(text.Length);
-    //
-    // // Parsing logic here...
-    //
-    // // We give back the temp array.
-    // ArrayPool<byte>.Shared.Return(buffer);
-
-    private static (bool, byte[], string errormsg) ParseTextToBytes(string text, bool showCharMode)
-    {
-        /*
-         * for a result of 0xaf in hex :
-         * e1 = a
-         * e0 = f
-         */
-        byte? e0 = null,
-            e1 = null;
-        byte[] buffer = new byte[text.Length];
-        int idx = 0;
-        bool success = default;
-        string errorMsg = string.Empty;
-
-        foreach (char c in text)
+        else if (debugMode)
         {
-            if (c == '\\' || c == 'x')
-                continue;
-
-            errorMsg = $"invalid character detected when parsing text to byte: {c}";
-            // this initial null check is necessary to "advance the pointer".
-            if (e1 is null)
-            {
-                e1 = ConvertCharToByte(c);
-                if (e1 is null)
-                {
-                    success = false;
-                    break;
-                }
-                else
-                    continue;
-            }
-
-            e0 ??= ConvertCharToByte(c);
-            if (e0 is null)
-            {
-                success = false;
-                break;
-            }
-
-            byte value = (byte)(e1 * 16 + e0);
-            buffer[idx] = value;
-            idx++;
-
-            e0 = null;
-            e1 = null;
-
-            if (showCharMode)
-                Console.Write($"{value:X2} ");
-
-            success = true;
+            Display.Error(section, errorMsg);
         }
-        if (showCharMode)
-            Console.Write("\n");
-
-        // TODO: Refactor when Spans are fully implemented.
-        Array.Resize(ref buffer, idx);
-        return (success, buffer, errorMsg);
     }
-
-    private static byte? ConvertCharToByte(char c) =>
-        c switch
-        {
-            '0' => 0,
-            '1' => 1,
-            '2' => 2,
-            '3' => 3,
-            '4' => 4,
-            '5' => 5,
-            '6' => 6,
-            '7' => 7,
-            '8' => 8,
-            '9' => 9,
-            'a' or 'A' => 10,
-            'b' or 'B' => 11,
-            'c' or 'C' => 12,
-            'd' or 'D' => 13,
-            'e' or 'E' => 14,
-            'f' or 'F' => 15,
-            _ => null,
-        };
-
-    // This method isn't called with value argument set to None.
-    private static bool CheckFlagValue(GlobalFlags gf, GlobalFlags target) => (gf & target) != 0;
 }
