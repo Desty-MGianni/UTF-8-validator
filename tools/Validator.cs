@@ -57,8 +57,7 @@ static class Validator
 
                 if (!IsContinuationByte(b))
                 {
-                    msg =
-                        $"Expected continuation byte at byte, but got: {b} -> {b:X}. [byte nº{position}]";
+                    msg = $"Expected continuation byte, but got: {b} -> {b:X}. [byte nº{position}]";
                     return (false, msg);
                 }
 

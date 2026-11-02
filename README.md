@@ -87,10 +87,6 @@ The validator sequentially steps through a file stream and routes evaluation via
 - **UTF-16 Surrogate Pairs Boundaries:** The 1st byte equals `0xED` and the 2nd byte is between `0x80` and `0xBF`.
 - **Truncation Safeguards:** Detects unexpected EOF mid-sequence.
 
-## Known bug
-
-- Only the 1st string is read and validate when using `-t` flag with multiple input arguments.
-
 ## Roadmap / TODO
 
 - [x] Implement robust **Overlong Encoding** traps (e.g., detecting `0xE0` followed by bytes lower than `0xA0`).

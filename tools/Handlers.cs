@@ -126,7 +126,7 @@ static class Handlers
         {
             if (debugMode)
                 Display.Info("reading cli arguments");
-            (success, errorMsg) = ReadCLI(remArgs, showCharMode);
+            (success, errorMsg) = ReadCLI(ref remArgs, showCharMode);
             if (success)
             {
                 ok++;
@@ -158,10 +158,8 @@ static class Handlers
         return (ok, total);
     }
 
-    //BUG: For this command Script/utf8-validator -t \x23\x22 --show \xAC, only the 1st argument is read
-    //(the flags are extracted successfully)
     //TODO: Refactor this and ParseTextToByte methods
-    internal static (bool success, string errorMsg) ReadCLI(string[] remArgs, bool showCharMode)
+    internal static (bool success, string errorMsg) ReadCLI(ref string[] remArgs, bool showCharMode)
     {
         foreach (string text in remArgs)
         {
@@ -186,7 +184,21 @@ static class Handlers
 
     // this method parse string from printf style (\xFF) into raw bytes.
     // In the actual implementation, the program first go through all of
+
     // TODO: Change method's signature to accept a Stream instead of string (so I can daisy chain it into the validator)
+
+    // Optimizaton suggested by Gemini
+    //     //
+    // using System.Buffers;
+    //
+    // // Rent a temporary array from global pool.
+    // byte[] buffer = ArrayPool<byte>.Shared.Rent(text.Length);
+    //
+    // // Parsing logic here...
+    //
+    // // We give back the temp array.
+    // ArrayPool<byte>.Shared.Return(buffer);
+
     private static (bool, byte[], string errormsg) ParseTextToBytes(string text, bool showCharMode)
     {
         /*
@@ -235,11 +247,15 @@ static class Handlers
             e1 = null;
 
             if (showCharMode)
-                Console.Write($"{value:x2} ");
+                Console.Write($"{value:X2} ");
 
             success = true;
         }
-        Console.Write("\n");
+        if (showCharMode)
+            Console.Write("\n");
+
+        // TODO: Refactor when Spans are fully implemented.
+        Array.Resize(ref buffer, idx);
         return (success, buffer, errorMsg);
     }
 
@@ -256,15 +272,15 @@ static class Handlers
             '7' => 7,
             '8' => 8,
             '9' => 9,
-            'a' or 'a' => 10,
-            'b' or 'b' => 11,
-            'c' or 'c' => 12,
-            'd' or 'd' => 13,
-            'e' or 'e' => 14,
-            'f' or 'f' => 15,
+            'a' or 'A' => 10,
+            'b' or 'B' => 11,
+            'c' or 'C' => 12,
+            'd' or 'D' => 13,
+            'e' or 'E' => 14,
+            'f' or 'F' => 15,
             _ => null,
         };
 
     // This method isn't called with value argument set to None.
-    private static bool CheckFlagValue(GlobalFlags gf, GlobalFlags value) => (gf & value) != 0;
+    private static bool CheckFlagValue(GlobalFlags gf, GlobalFlags target) => (gf & target) != 0;
 }

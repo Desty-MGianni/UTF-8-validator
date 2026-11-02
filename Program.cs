@@ -56,6 +56,7 @@
  *
  */
 
+//TODO: Change each array's into Span<T> or ReadOnlySpan<T> for better performances
 namespace Utf8Validator;
 
 using Utf8Validator.Tools;
