@@ -97,6 +97,10 @@ The validator sequentially steps through a file stream and routes evaluation via
 - [x] Add a `--show-bytes` flag to dump reconstructed strings to the console.
 - [ ] Inhouse UTF-8 encoder when we want to display each reconstructed character.
 
+## Bugs & Limitations
+
+- When the program prompt for user input in `-t`, the data isn't considered as "printf syntax" and is always valid except if user paste a wrong character.
+
 ## License
 
 This project is licensed under the **MIT License**.
