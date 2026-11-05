@@ -92,7 +92,7 @@ The validator sequentially steps through a file stream and routes evaluation via
 - [x] Refactor and secure native **stdin piping**.
 - [x] Implement a granular `--debug` to output trace-level evaluation logs.
 - [x] Add a `--show-bytes` flag to dump reconstructed strings to the console.
-- [ ] Inhouse UTF-8 encoder when we want to display each reconstructed character.
+- [x] Inhouse UTF-8 encoder when we want to display each reconstructed character.
 
 ## License
 

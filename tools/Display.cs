@@ -26,7 +26,6 @@ static class Display
         Console.Write($"Valid UTF-8 string\n");
     }
 
-    //TODO: In house UTF-8 encoding logic.
     internal static void Character(ReadOnlySpan<byte> validSequence)
     {
         // We prepare a mini-buffer.
