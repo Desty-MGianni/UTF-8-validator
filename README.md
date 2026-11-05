@@ -56,8 +56,6 @@ Both global flags (`--global` and `--show`) can be added anywhere inside the arg
 ./utf8-validator -t --debug "\xAC\x41\x42"
 ```
 
-When no argumens are given after the flag, the program prompt the user via stdin. To escape from it, you have to use `ctrl+d` (2x if you are in the middle of a text).
-
 ### 3. Piped Stream Mode (Native Unix Architecture)
 
 No flags are required when piping data. The application instantly switches to streaming mode upon detecting input redirection:
@@ -96,10 +94,6 @@ The validator sequentially steps through a file stream and routes evaluation via
 - [x] Implement a granular `--debug` to output trace-level evaluation logs.
 - [x] Add a `--show-bytes` flag to dump reconstructed strings to the console.
 - [ ] Inhouse UTF-8 encoder when we want to display each reconstructed character.
-
-## Bugs & Limitations
-
-- When the program prompt for user input in `-t`, the data isn't considered as "printf syntax" and is always valid except if user paste a wrong character.
 
 ## License
 
