@@ -13,7 +13,7 @@ internal static class Readers
         string errorMsg;
         foreach (string arg in remArgs)
         {
-            (bool success, byte[] data) = Utils.ParseTextToBytes(arg, showCharMode);
+            (bool success, byte[] data) = Utils.ParseTextToBytes(arg);
             if (!success)
             {
                 errorMsg = $"Failed to parse string {arg}";
@@ -26,6 +26,10 @@ internal static class Readers
             {
                 return (false, errorMsg);
             }
+
+            // Add a newLine between each args when we show them.
+            if (showCharMode)
+                Console.Write('\n');
         }
         return (true, string.Empty);
     }

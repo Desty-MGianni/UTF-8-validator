@@ -29,7 +29,7 @@ internal static class Utils
 
     // this method parse string from printf style (\xFF) into raw bytes.
     // In the actual implementation, the program first go through all of
-    internal static (bool success, byte[] result) ParseTextToBytes(string text, bool showCharMode)
+    internal static (bool success, byte[] result) ParseTextToBytes(string text)
     {
         // If this test fails, it means the user
         // uses wrong syntax.
@@ -59,10 +59,71 @@ internal static class Utils
             byteCount++;
         }
 
-        if (showCharMode)
-            Display.Character(resultBuffer.AsSpan());
-
         return (true, resultBuffer[..byteCount]);
+    }
+
+    // Use of the standard pattern from Microsoft (Like int.TryFormat).
+    internal static int Encoder(ReadOnlySpan<byte> validSequence, Span<char> dest)
+    {
+        int cp; // Unicode Code Point (32 bits)
+        byte continuationMask = 0b00111111;
+
+        // Code point calculation logic
+        switch (validSequence.Length)
+        {
+            case 1:
+                // 0xxxxxxx -> 7 bits used
+                cp = validSequence[0] & 0b01111111;
+                break;
+            case 2:
+                // 110xxxxx 10xxxxxx
+                // -> 5 bits + 6 bits
+                // = 11 bits used;
+                cp = (validSequence[0] & 0b00011111) << 6;
+                cp |= validSequence[1] & continuationMask;
+                break;
+            case 3:
+                // 1110xxxx 10xxxxxx 10xxxxxx
+                // -> 4 bits + 6 bits + 6 bits
+                // = 16 bits used
+                cp = (validSequence[0] & 0b00001111) << 12;
+                cp |= (validSequence[1] & continuationMask) << 6;
+                cp |= validSequence[2] & continuationMask;
+                break;
+            case 4:
+                // 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+                // -> 3 bits + 6 bits + 6 bits + 6 bits
+                // = 21 bits used
+                cp = (validSequence[0] & 0b00000111) << 18;
+                cp |= (validSequence[1] & continuationMask) << 12;
+                cp |= (validSequence[2] & continuationMask) << 6;
+                cp |= validSequence[3] & continuationMask;
+                break;
+            default:
+                throw new Exception("Invlalid data in Encoder");
+        }
+
+        // This step is necessary because C# uses UTF-16 for the char datatype.
+        // this means that for emojis (), we need a high surrogate
+        // and a low surrogate pairs to represent it.
+        if (cp <= 0xFFFF)
+        {
+            dest[0] = (char)cp;
+            return 1;
+        }
+        else
+        {
+            int adjustedCp = cp - 0x10000;
+            int mSignBit = adjustedCp >> 10;
+            int lSignBit = adjustedCp & 0x3FF;
+
+            int highSurr = mSignBit + 0xD800;
+            int lowSurr = lSignBit + 0xDC00;
+
+            dest[0] = (char)highSurr;
+            dest[1] = (char)lowSurr;
+            return 2;
+        }
     }
 
     internal static GlobalFlags ConvertToGFlags(string arg) =>

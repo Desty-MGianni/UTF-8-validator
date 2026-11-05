@@ -29,8 +29,13 @@ static class Display
     //TODO: In house UTF-8 encoding logic.
     internal static void Character(ReadOnlySpan<byte> validSequence)
     {
-        string character = Encoding.UTF8.GetString(validSequence);
-        Console.Write(character);
+        // We prepare a mini-buffer.
+        Span<char> renderBuffer = stackalloc char[2];
+
+        // the encoder fill the buffer and gives the exact vue.
+        int charsWritten = Utils.Encoder(validSequence, renderBuffer);
+
+        Console.Write(renderBuffer[..charsWritten]);
     }
 
     internal static void SuccessSummary()
@@ -41,7 +46,7 @@ static class Display
 
     internal static void ErrorSummary(int ok, int total)
     {
-        Console.WriteLine();
+        Console.Write('\n');
         Console.Write(ok);
         Console.Write("\u001b[33m/\u001b[0m");
         Console.Write(total);

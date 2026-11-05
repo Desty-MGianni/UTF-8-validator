@@ -86,7 +86,7 @@ static class Handlers
 
         bool success;
         string errorMsg;
-        string section = string.Empty;
+        string section = "CLI";
 
         // If the user type "bytes" in the CLI Arguments,
         // we manually parse each character from the string
@@ -95,6 +95,7 @@ static class Handlers
         // (\xFA become real 0xFA byte)
         if (remArgs.Length >= 1)
         {
+            total = 1;
             if (debugMode)
                 Display.Info("Reading cli arguments");
 

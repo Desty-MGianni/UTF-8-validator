@@ -154,7 +154,7 @@ static class Validator
         {
             1 => false,
             2 => b < 0x90,
-            3 => b > 0x8F,
+            3 => b < 0x90,
             _ => false,
         };
     }

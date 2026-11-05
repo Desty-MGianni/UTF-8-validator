@@ -44,9 +44,6 @@ Both global flags (`--global` and `--show`) can be added anywhere inside the arg
 
 # Scan all files within directories
 ./utf8-validator -d path/to/project /var/log/
-
-# With a global flag in the middle
-./utf8-validator -t "\x23\x33" --show "\x0a\x99"
 ```
 
 ### 2. Hex/Text Suffix Generation Mode
@@ -54,6 +51,8 @@ Both global flags (`--global` and `--show`) can be added anywhere inside the arg
 ```bash
 # Manually parse hex formatting directly into real byte values (printf syntax)
 ./utf8-validator -t --debug "\xAC\x41\x42"
+
+./utf8-validator -t "\xAC" "\x00" --show '\x32'
 ```
 
 ### 3. Piped Stream Mode (Native Unix Architecture)
