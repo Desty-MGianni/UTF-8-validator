@@ -82,7 +82,7 @@ static class Handlers
         bool showCharMode = Utils.CheckFlagValue(flags, GlobalFlags.ShowChar);
 
         int ok = 0;
-        int total = 1;
+        int total = 0;
 
         bool success;
         string errorMsg;
@@ -101,14 +101,10 @@ static class Handlers
             (success, errorMsg) = Readers.CLI(remArgs, showCharMode);
             Result(debugMode, success, section, errorMsg, ref ok);
         }
-        // No other argument in args : we prompt the user via stdin
-        else
-        {
-            Piping(debugMode, showCharMode);
-        }
         return (ok, total);
     }
 
+    // Parameter noArgs is a state for when the user used -t but didn't enter anything
     internal static (int ok, int total) Piping(bool debugMode, bool showCharMode)
     {
         int ok = 0;
